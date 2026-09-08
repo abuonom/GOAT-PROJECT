@@ -45,10 +45,11 @@ const POT_STYLE: Record<string, { color: string; bg: string }> = {
 // ── Slider component ──────────────────────────────────────────────────────────
 
 const PROFILES: { key: keyof BuildWeights; label: string; desc: string; color: string }[] = [
-  { key: 'rebuild',      label: 'REBUILD',       desc: 'Giovani con alto potenziale',         color: '#4ade80' },
-  { key: 'winNow',       label: 'WIN NOW',        desc: 'Overall alto, pronti subito',          color: '#c084fc' },
-  { key: 'valueHunt',    label: 'VALUE HUNT',     desc: 'Attributi elite nascosti dall\'OVR',  color: '#facc15' },
-  { key: 'teamFriendly', label: 'TEAM FRIENDLY',  desc: 'Contratti corti e convenienti',        color: '#60a5fa' },
+  { key: 'rebuild',       label: 'REBUILD',        desc: 'Giovani con alto potenziale',                    color: '#4ade80' },
+  { key: 'winNow',        label: 'WIN NOW',         desc: 'Overall alto, pronti subito',                   color: '#c084fc' },
+  { key: 'valueHunt',     label: 'VALUE HUNT',      desc: 'Attributi elite nascosti dall\'OVR',            color: '#facc15' },
+  { key: 'teamFriendly',  label: 'TEAM FRIENDLY',   desc: 'Contratti corti e convenienti',                 color: '#60a5fa' },
+  { key: 'physicalFreak', label: 'PHYSICAL FREAK',  desc: 'Grande per la sua posizione (h/wingspan/ath)',  color: '#fb923c' },
 ]
 
 function Slider({
@@ -169,6 +170,11 @@ function GuidePanel() {
                 title: 'TEAM FRIENDLY',
                 desc: 'Favorisce contratti corti e poco costosi. Utile per tenere flessibilità salariale.',
               },
+              {
+                color: '#fb923c',
+                title: 'PHYSICAL FREAK',
+                desc: 'Premia chi è fisicamente eccezionale per la sua posizione più piccola: altezza, wingspan e atletismo. Cooper Flagg e Scottie Barnes (7\'0" che giocano PG) sono l\'esempio perfetto.',
+              },
             ].map(item => (
               <div key={item.title} className="flex gap-2.5">
                 <div className="w-1 rounded-full shrink-0 mt-0.5" style={{ background: item.color, minHeight: '100%' }} />
@@ -197,6 +203,15 @@ function GuidePanel() {
 }
 
 const NOTE_SHORT: Record<string, string> = { PO: 'PO', TO: 'TO', QO: 'QO' }
+
+const POS_STYLE: Record<string, { color: string; background: string }> = {
+  'PG':      { color: '#60a5fa', background: 'rgba(59,130,246,0.15)' },
+  'SG':      { color: '#a78bfa', background: 'rgba(139,92,246,0.15)' },
+  'SF':      { color: '#4ade80', background: 'rgba(34,197,94,0.15)' },
+  'PF':      { color: '#fb923c', background: 'rgba(249,115,22,0.15)' },
+  'C':       { color: '#f87171', background: 'rgba(239,68,68,0.15)' },
+  'default': { color: 'var(--text-sec)', background: 'var(--surface2)' },
+}
 const NOTE_TITLE: Record<string, string> = { PO: 'Player Option', TO: 'Team Option', QO: 'Qualifying Offer' }
 
 const BADGE_TIERS = [
@@ -211,7 +226,7 @@ const BADGE_TIERS = [
 
 interface DraftPick { slug: string; rank: number; pick: string; draftYear: number }
 
-const DRAFT_YEARS = [2025, 2024, 2023, 2022, 2021]
+const DRAFT_YEARS = [2026, 2025, 2024, 2023, 2022, 2021]
 
 export default function DraftBuilderPage() {
   const router = useRouter()
@@ -331,7 +346,7 @@ export default function DraftBuilderPage() {
     return s
   }, [draftYears, draftPicks])
 
-  const totalActive = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly
+  const totalActive = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak
 
   const scored = useMemo(() => {
     return players
@@ -732,8 +747,16 @@ function DraftBuilderRow({
 
       {/* Name + meta */}
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => window.open(`/player/${player.slug}`, '_blank')}>
-        <div className="font-display text-lg font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
-          {player.name}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="font-display text-lg font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
+            {player.name}
+          </div>
+          {[...new Set(player.positions)].map(pos => (
+            <span key={pos} className="text-[10px] font-black px-1.5 py-0.5 rounded tracking-wide"
+              style={POS_STYLE[pos] ?? POS_STYLE['default']}>
+              {pos}
+            </span>
+          ))}
         </div>
         {attrFilters.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -758,6 +781,12 @@ function DraftBuilderRow({
             <>
               <span style={{ color: 'var(--text-dim)' }}>·</span>
               <span className="text-xs" style={{ color: 'var(--text-sec)' }}>{age} anni</span>
+            </>
+          )}
+          {player.height && (
+            <>
+              <span style={{ color: 'var(--text-dim)' }}>·</span>
+              <span className="text-xs" style={{ color: 'var(--text-sec)' }}>{player.height}</span>
             </>
           )}
           {pot && potStyle && (

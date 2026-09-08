@@ -4,13 +4,14 @@ import type { PlayerExtra } from '@/hooks/usePotentials'
 
 // ── Weights (user-controlled via sliders 0–10) ────────────────────────────────
 export interface BuildWeights {
-  rebuild:      number  // young + potential
-  winNow:       number  // overall + prime age
-  valueHunt:    number  // elite attributes vs overall
-  teamFriendly: number  // short/cheap contract
+  rebuild:       number  // young + potential
+  winNow:        number  // overall + prime age
+  valueHunt:     number  // elite attributes vs overall
+  teamFriendly:  number  // short/cheap contract
+  physicalFreak: number  // height/wingspan/athleticism vs position norm
 }
 
-export const DEFAULT_WEIGHTS: BuildWeights = { rebuild: 0, winNow: 0, valueHunt: 0, teamFriendly: 0 }
+export const DEFAULT_WEIGHTS: BuildWeights = { rebuild: 0, winNow: 0, valueHunt: 0, teamFriendly: 0, physicalFreak: 0 }
 
 // ── Sub-scores (0–100 each) ───────────────────────────────────────────────────
 
@@ -66,6 +67,63 @@ function valueHuntScore(player: Player): number {
   return Math.min(100, raw)
 }
 
+// ── Physical freak score ──────────────────────────────────────────────────────
+// Rewards players who are physically exceptional FOR THEIR SMALLEST POSITION.
+// A 7'0" PF is normal; a 7'0" PG (Cooper Flagg, Scottie Barnes) is a freak.
+
+const POS_ORDER = ['PG', 'SG', 'SF', 'PF', 'C']
+
+// Average height in inches per position (NBA league averages)
+const POS_AVG_HEIGHT: Record<string, number> = { PG: 74, SG: 77, SF: 79, PF: 81, C: 83 }
+// Average wingspan in inches per position
+const POS_AVG_WINGSPAN: Record<string, number> = { PG: 77, SG: 80, SF: 83, PF: 85, C: 88 }
+
+function parseFeetInches(s: string | undefined): number | null {
+  if (!s) return null
+  const m = s.match(/(\d+)'(\d+)"/)
+  return m ? parseInt(m[1]) * 12 + parseInt(m[2]) : null
+}
+
+function physicalFreakScore(player: Player): number {
+  const positions = player.positions ?? []
+  if (positions.length === 0) return 0
+
+  // Use the most guard-like position they play (smallest in the hierarchy)
+  const smallestPos = positions.reduce((best, p) => {
+    const bi = POS_ORDER.indexOf(best), pi = POS_ORDER.indexOf(p)
+    return (pi >= 0 && (bi < 0 || pi < bi)) ? p : best
+  }, positions[0])
+
+  const avgH = POS_AVG_HEIGHT[smallestPos] ?? 79
+  const avgW = POS_AVG_WINGSPAN[smallestPos] ?? 83
+
+  const heightIn  = parseFeetInches(player.height)
+  const wingspanIn = parseFeetInches(player.wingspan)
+
+  // Height bonus: 8+ inches above position avg = full 40 pts
+  const heightScore = heightIn != null
+    ? Math.min(1, Math.max(0, (heightIn - avgH) / 8)) * 40
+    : 0
+
+  // Wingspan bonus: 6+ inches above position avg = full 35 pts
+  const wingspanScore = wingspanIn != null
+    ? Math.min(1, Math.max(0, (wingspanIn - avgW) / 6)) * 35
+    : 0
+
+  // Physical athleticism: speed, agility, vertical, strength vs OVR
+  const physKeys = ['speed', 'agility', 'vertical', 'strength'] as const
+  const physVals = physKeys.map(k => player.attributes[k] ?? 0).filter(v => v > 0)
+  const physAvg = physVals.length > 0 ? physVals.reduce((a, b) => a + b, 0) / physVals.length : 0
+  const physScore = Math.min(1, Math.max(0, (physAvg - 65) / 25)) * 25
+
+  // If no wingspan data, upweight the other two components
+  if (wingspanIn == null) {
+    return Math.min(100, Math.round((heightScore / 40) * 55 + physScore * 1.8))
+  }
+
+  return Math.min(100, Math.round(heightScore + wingspanScore + physScore))
+}
+
 function contractScore(contract: ContractEntry | null | undefined): number {
   if (!contract) return 35  // FA: uncertain, mid score
   const years = contract.years_remaining
@@ -84,11 +142,12 @@ function contractScore(contract: ContractEntry | null | undefined): number {
 // ── Main scorer ───────────────────────────────────────────────────────────────
 
 export interface PlayerScore {
-  rebuild:      number
-  winNow:       number
-  valueHunt:    number
-  teamFriendly: number
-  total:        number
+  rebuild:       number
+  winNow:        number
+  valueHunt:     number
+  teamFriendly:  number
+  physicalFreak: number
+  total:         number
 }
 
 export function scorePlayer(
@@ -97,18 +156,20 @@ export function scorePlayer(
   contract: ContractEntry | null | undefined,
   weights: BuildWeights,
 ): PlayerScore {
-  const totalWeight = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly || 1
+  const totalWeight = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak || 1
 
   const potScore = extra?.potential ? (POT_SCORE[extra.potential] ?? 30) : 30
-  const rebuild      = Math.round((ageScore(extra?.age) * 0.55 + potScore * 0.45))
-  const winNow       = Math.round(ovrScore(player.overall))
-  const valueHunt    = Math.round(valueHuntScore(player))
-  const teamFriendly = Math.round(contractScore(contract))
+  const rebuild       = Math.round((ageScore(extra?.age) * 0.55 + potScore * 0.45))
+  const winNow        = Math.round(ovrScore(player.overall))
+  const valueHunt     = Math.round(valueHuntScore(player))
+  const teamFriendly  = Math.round(contractScore(contract))
+  const physicalFreak = Math.round(physicalFreakScore(player))
 
   const total = Math.round(
     (rebuild * weights.rebuild + winNow * weights.winNow +
-     valueHunt * weights.valueHunt + teamFriendly * weights.teamFriendly) / totalWeight
+     valueHunt * weights.valueHunt + teamFriendly * weights.teamFriendly +
+     physicalFreak * weights.physicalFreak) / totalWeight
   )
 
-  return { rebuild, winNow, valueHunt, teamFriendly, total }
+  return { rebuild, winNow, valueHunt, teamFriendly, physicalFreak, total }
 }

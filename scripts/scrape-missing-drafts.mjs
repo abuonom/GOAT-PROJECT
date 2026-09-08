@@ -9,7 +9,7 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
 
 const CACHE_DIR = resolve(process.cwd(), '.cache')
-const YEARS = [2021, 2022]
+const YEARS = [2026]
 
 if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true })
 

@@ -21,7 +21,7 @@ const supabase = createClient(
   env.SUPABASE_SERVICE_ROLE_KEY  // service role per insert senza RLS
 )
 
-const YEARS = [2021, 2022, 2023, 2024, 2025]
+const YEARS = [2026]
 const CACHE_DIR = resolve(process.cwd(), '.cache')
 
 for (const year of YEARS) {

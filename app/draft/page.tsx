@@ -18,7 +18,7 @@ interface DraftPlayer {
   draftYear: number
 }
 
-const DRAFT_YEARS = [2025, 2024, 2023, 2022, 2021]
+const DRAFT_YEARS = [2026, 2025, 2024, 2023, 2022, 2021]
 
 const POTENTIAL_STYLE: Record<string, { color: string; bg: string }> = {
   'A+': { color: '#fde047', bg: 'rgba(234,179,8,0.15)' },
@@ -33,6 +33,15 @@ const POTENTIAL_STYLE: Record<string, { color: string; bg: string }> = {
 }
 
 const POT_ORDER = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D']
+
+const POS_STYLE: Record<string, { color: string; background: string }> = {
+  'PG':      { color: '#60a5fa', background: 'rgba(59,130,246,0.15)' },
+  'SG':      { color: '#a78bfa', background: 'rgba(139,92,246,0.15)' },
+  'SF':      { color: '#4ade80', background: 'rgba(34,197,94,0.15)' },
+  'PF':      { color: '#fb923c', background: 'rgba(249,115,22,0.15)' },
+  'C':       { color: '#f87171', background: 'rgba(239,68,68,0.15)' },
+  'default': { color: 'var(--text-sec)', background: 'var(--surface2)' },
+}
 
 function ovrColor(ovr: number) {
   if (ovr >= 90) return 'var(--ovr-a)'
@@ -57,7 +66,7 @@ function matchContract(name: string, contracts: ContractEntry[]): ContractEntry 
 type LoadStep = { label: string; done: boolean }
 
 export default function DraftPage() {
-  const [selectedYears, setSelectedYears] = useState<number[]>([2025, 2024, 2023])
+  const [selectedYears, setSelectedYears] = useState<number[]>([2026, 2025, 2024, 2023])
   const [sortBy, setSortBy] = useState<'overall' | 'potential' | 'pick'>('overall')
   const [filterYear, setFilterYear] = useState<number | 'all'>('all')
 
@@ -396,8 +405,16 @@ export default function DraftPage() {
                   <div className="font-display text-lg font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
                     {player.name}
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--text-sec)' }}>
-                    {player.teamAbbr} · {player.positions.join('/')} · {player.height}
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {[...new Set(player.positions)].map(pos => (
+                      <span key={pos} className="text-[10px] font-black px-1.5 py-0.5 rounded tracking-wide"
+                        style={POS_STYLE[pos] ?? POS_STYLE['default']}>
+                        {pos}
+                      </span>
+                    ))}
+                    <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                      {player.teamAbbr}{player.height ? ` · ${player.height}` : ''}
+                    </span>
                   </div>
                 </div>
 
