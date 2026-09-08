@@ -50,6 +50,7 @@ const PROFILES: { key: keyof BuildWeights; label: string; desc: string; color: s
   { key: 'valueHunt',     label: 'VALUE HUNT',      desc: 'Attributi elite nascosti dall\'OVR',            color: '#facc15' },
   { key: 'teamFriendly',  label: 'TEAM FRIENDLY',   desc: 'Contratti corti e convenienti',                 color: '#60a5fa' },
   { key: 'physicalFreak', label: 'PHYSICAL FREAK',  desc: 'Grande per la sua posizione (h/wingspan/ath)',  color: '#fb923c' },
+  { key: 'capRelief',     label: 'CAP RELIEF',      desc: 'Contratto alto in scadenza: libera spazio cap', color: '#f472b6' },
 ]
 
 function Slider({
@@ -174,6 +175,11 @@ function GuidePanel() {
                 color: '#fb923c',
                 title: 'PHYSICAL FREAK',
                 desc: 'Premia chi è fisicamente eccezionale per la sua posizione più piccola: altezza, wingspan e atletismo. Cooper Flagg e Scottie Barnes (7\'0" che giocano PG) sono l\'esempio perfetto.',
+              },
+              {
+                color: '#f472b6',
+                title: 'CAP RELIEF',
+                desc: 'Trova i giocatori con contratto alto (>8% cap) che scadono presto (1-3 anni). Ideale per pianificare chi tagliare o non rinnovare per liberare spazio salariale.',
               },
             ].map(item => (
               <div key={item.title} className="flex gap-2.5">
@@ -346,7 +352,7 @@ export default function DraftBuilderPage() {
     return s
   }, [draftYears, draftPicks])
 
-  const totalActive = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak
+  const totalActive = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak + weights.capRelief
 
   const scored = useMemo(() => {
     return players

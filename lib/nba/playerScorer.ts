@@ -9,9 +9,10 @@ export interface BuildWeights {
   valueHunt:     number  // elite attributes vs overall
   teamFriendly:  number  // short/cheap contract
   physicalFreak: number  // height/wingspan/athleticism vs position norm
+  capRelief:     number  // high salary expiring soon → cap space freed
 }
 
-export const DEFAULT_WEIGHTS: BuildWeights = { rebuild: 0, winNow: 0, valueHunt: 0, teamFriendly: 0, physicalFreak: 0 }
+export const DEFAULT_WEIGHTS: BuildWeights = { rebuild: 0, winNow: 0, valueHunt: 0, teamFriendly: 0, physicalFreak: 0, capRelief: 0 }
 
 // ── Sub-scores (0–100 each) ───────────────────────────────────────────────────
 
@@ -124,6 +125,22 @@ function physicalFreakScore(player: Player): number {
   return Math.min(100, Math.round(heightScore + wingspanScore + physScore))
 }
 
+// Rewards high-salary players expiring soon: the more cap you free by cutting them, the better.
+function capReliefScore(contract: ContractEntry | null | undefined): number {
+  if (!contract) return 0  // FA: nothing to free
+  const years = contract.years_remaining
+  const salary = contract.salaries[0]?.amount ?? 0
+  const capPct = salary / 164_961_000
+
+  // Only interesting if salary is meaningful (>8% cap) and contract is short (≤3yr)
+  if (capPct < 0.08 || years > 3) return 0
+
+  // More salary + fewer years = higher score
+  const salScore  = capPct >= 0.30 ? 100 : capPct >= 0.22 ? 85 : capPct >= 0.16 ? 70 : capPct >= 0.12 ? 50 : 30
+  const yearsBonus = years === 1 ? 1.0 : years === 2 ? 0.75 : 0.4  // 3yr gives partial credit
+  return Math.min(100, Math.round(salScore * yearsBonus))
+}
+
 function contractScore(contract: ContractEntry | null | undefined): number {
   if (!contract) return 35  // FA: uncertain, mid score
   const years = contract.years_remaining
@@ -147,6 +164,7 @@ export interface PlayerScore {
   valueHunt:     number
   teamFriendly:  number
   physicalFreak: number
+  capRelief:     number
   total:         number
 }
 
@@ -156,7 +174,7 @@ export function scorePlayer(
   contract: ContractEntry | null | undefined,
   weights: BuildWeights,
 ): PlayerScore {
-  const totalWeight = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak || 1
+  const totalWeight = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak + weights.capRelief || 1
 
   const potScore = extra?.potential ? (POT_SCORE[extra.potential] ?? 30) : 30
   const rebuild       = Math.round((ageScore(extra?.age) * 0.55 + potScore * 0.45))
@@ -164,12 +182,13 @@ export function scorePlayer(
   const valueHunt     = Math.round(valueHuntScore(player))
   const teamFriendly  = Math.round(contractScore(contract))
   const physicalFreak = Math.round(physicalFreakScore(player))
+  const capRelief     = Math.round(capReliefScore(contract))
 
   const total = Math.round(
     (rebuild * weights.rebuild + winNow * weights.winNow +
      valueHunt * weights.valueHunt + teamFriendly * weights.teamFriendly +
-     physicalFreak * weights.physicalFreak) / totalWeight
+     physicalFreak * weights.physicalFreak + capRelief * weights.capRelief) / totalWeight
   )
 
-  return { rebuild, winNow, valueHunt, teamFriendly, physicalFreak, total }
+  return { rebuild, winNow, valueHunt, teamFriendly, physicalFreak, capRelief, total }
 }
