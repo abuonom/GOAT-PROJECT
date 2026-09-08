@@ -255,6 +255,7 @@ export default function DraftBuilderPage() {
   // Drafted (hidden) players — per-user localStorage
   const [userId, setUserId] = useState<string | null>(null)
   const [draftedSlugs, setDraftedSlugs] = useState<Set<string>>(new Set())
+  const [sortBy, setSortBy] = useState<'score' | 'ovr' | 'contract' | 'badges'>('score')
   const { savedPlayers, isSaved, savePlayer, removePlayer, clearAll } = useSavedPlayers()
   const { toasts, dismissToast } = useCapToasts(savedPlayers, contracts)
 
@@ -369,12 +370,24 @@ export default function DraftBuilderPage() {
         const pick = draftPicks.get(p.slug)
         return { player: p, extra, contract, score, pick: pick ?? null }
       })
-      .sort((a, b) =>
-        totalActive === 0
+      .sort((a, b) => {
+        if (sortBy === 'ovr') return b.player.overall - a.player.overall
+        if (sortBy === 'contract') {
+          const sa = a.contract?.salaries[0]?.amount ?? 0
+          const sb = b.contract?.salaries[0]?.amount ?? 0
+          return sb - sa
+        }
+        if (sortBy === 'badges') {
+          const ba = a.player.badges?.list?.length ?? 0
+          const bb = b.player.badges?.list?.length ?? 0
+          return bb - ba
+        }
+        // score (default)
+        return totalActive === 0
           ? b.player.overall - a.player.overall
           : b.score.total - a.score.total
-      )
-  }, [players, potentials, contracts, weights, minOvr, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs])
+      })
+  }, [players, potentials, contracts, weights, minOvr, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortBy])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -418,6 +431,19 @@ export default function DraftBuilderPage() {
               >
                 {[65, 70, 75, 78, 80, 82, 85].map(v => <option key={v} value={v}>{v}+</option>)}
               </select>
+              <div className="flex gap-1 border-l pl-2" style={{ borderColor: 'var(--border)' }}>
+                {([['score','Score'],['ovr','OVR'],['contract','$'],['badges','Badge']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    className="font-display text-xs font-black px-2 py-1 rounded transition-all"
+                    style={sortBy === key
+                      ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
+                      : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
+                    }
+                  >{label}</button>
+                ))}
+              </div>
             </div>
 
             {/* Mobile: sidebar toggle */}
@@ -518,6 +544,22 @@ export default function DraftBuilderPage() {
             >
               {[65, 70, 75, 78, 80, 82, 85].map(v => <option key={v} value={v}>OVR {v}+</option>)}
             </select>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'var(--text-dim)' }}>Ordina per</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {([['score','Score'],['ovr','OVR'],['contract','Contratto $'],['badges','Badge']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    className="font-display text-xs font-black px-2.5 py-1.5 rounded transition-all"
+                    style={sortBy === key
+                      ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
+                      : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
+                    }
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="p-4 space-y-4 lg:sticky lg:top-16 lg:overflow-y-auto lg:max-h-[calc(100vh-5rem)]">
