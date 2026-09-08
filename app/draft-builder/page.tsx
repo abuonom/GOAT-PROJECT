@@ -255,7 +255,14 @@ export default function DraftBuilderPage() {
   // Drafted (hidden) players — per-user localStorage
   const [userId, setUserId] = useState<string | null>(null)
   const [draftedSlugs, setDraftedSlugs] = useState<Set<string>>(new Set())
-  const [sortBy, setSortBy] = useState<'score' | 'ovr' | 'contract' | 'badges'>('score')
+  type SortKey = 'score' | 'ovr' | 'contract' | 'badges'
+  const [sortKeys, setSortKeys] = useState<SortKey[]>(['score'])
+  const toggleSort = useCallback((key: SortKey) => {
+    setSortKeys(prev => {
+      if (prev.includes(key)) return prev.length === 1 ? prev : prev.filter(k => k !== key)
+      return [...prev, key]
+    })
+  }, [])
   const { savedPlayers, isSaved, savePlayer, removePlayer, clearAll } = useSavedPlayers()
   const { toasts, dismissToast } = useCapToasts(savedPlayers, contracts)
 
@@ -371,23 +378,17 @@ export default function DraftBuilderPage() {
         return { player: p, extra, contract, score, pick: pick ?? null }
       })
       .sort((a, b) => {
-        if (sortBy === 'ovr') return b.player.overall - a.player.overall
-        if (sortBy === 'contract') {
-          const sa = a.contract?.salaries[0]?.amount ?? 0
-          const sb = b.contract?.salaries[0]?.amount ?? 0
-          return sb - sa
+        for (const key of sortKeys) {
+          let diff = 0
+          if (key === 'ovr')      diff = b.player.overall - a.player.overall
+          else if (key === 'contract') diff = (b.contract?.salaries[0]?.amount ?? 0) - (a.contract?.salaries[0]?.amount ?? 0)
+          else if (key === 'badges')  diff = (b.player.badges?.list?.length ?? 0) - (a.player.badges?.list?.length ?? 0)
+          else diff = totalActive === 0 ? b.player.overall - a.player.overall : b.score.total - a.score.total
+          if (diff !== 0) return diff
         }
-        if (sortBy === 'badges') {
-          const ba = a.player.badges?.list?.length ?? 0
-          const bb = b.player.badges?.list?.length ?? 0
-          return bb - ba
-        }
-        // score (default)
-        return totalActive === 0
-          ? b.player.overall - a.player.overall
-          : b.score.total - a.score.total
+        return 0
       })
-  }, [players, potentials, contracts, weights, minOvr, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortBy])
+  }, [players, potentials, contracts, weights, minOvr, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortKeys])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -432,17 +433,26 @@ export default function DraftBuilderPage() {
                 {[65, 70, 75, 78, 80, 82, 85].map(v => <option key={v} value={v}>{v}+</option>)}
               </select>
               <div className="flex gap-1 border-l pl-2" style={{ borderColor: 'var(--border)' }}>
-                {([['score','Score'],['ovr','OVR'],['contract','$'],['badges','Badge']] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSortBy(key)}
-                    className="font-display text-xs font-black px-2 py-1 rounded transition-all"
-                    style={sortBy === key
-                      ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
-                      : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
-                    }
-                  >{label}</button>
-                ))}
+                {([['score','Score'],['ovr','OVR'],['contract','$'],['badges','Badge']] as const).map(([key, label]) => {
+                  const idx = sortKeys.indexOf(key)
+                  const active = idx !== -1
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleSort(key)}
+                      className="font-display text-xs font-black px-2 py-1 rounded transition-all flex items-center gap-1"
+                      style={active
+                        ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
+                        : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {label}
+                      {active && sortKeys.length > 1 && (
+                        <span className="text-[9px] font-black leading-none" style={{ color: 'var(--gold)', opacity: 0.7 }}>{idx + 1}</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -547,17 +557,26 @@ export default function DraftBuilderPage() {
             <div>
               <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'var(--text-dim)' }}>Ordina per</div>
               <div className="flex gap-1.5 flex-wrap">
-                {([['score','Score'],['ovr','OVR'],['contract','Contratto $'],['badges','Badge']] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSortBy(key)}
-                    className="font-display text-xs font-black px-2.5 py-1.5 rounded transition-all"
-                    style={sortBy === key
-                      ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
-                      : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
-                    }
-                  >{label}</button>
-                ))}
+                {([['score','Score'],['ovr','OVR'],['contract','Contratto $'],['badges','Badge']] as const).map(([key, label]) => {
+                  const idx = sortKeys.indexOf(key)
+                  const active = idx !== -1
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleSort(key)}
+                      className="font-display text-xs font-black px-2.5 py-1.5 rounded transition-all flex items-center gap-1"
+                      style={active
+                        ? { background: 'var(--gold-bg2)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
+                        : { background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }
+                      }
+                    >
+                      {label}
+                      {active && sortKeys.length > 1 && (
+                        <span className="text-[9px] font-black leading-none" style={{ color: 'var(--gold)', opacity: 0.7 }}>{idx + 1}</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
