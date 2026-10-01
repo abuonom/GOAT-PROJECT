@@ -3,17 +3,16 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Player } from '@/types/nba'
-import { useSavedPlayers } from '@/hooks/useSavedPlayers'
 import { useCapToasts } from '@/hooks/useCapToasts'
 import type { ContractEntry } from '@/app/api/contracts/route'
 import type { PlayerExtra } from '@/hooks/usePotentials'
 import { scorePlayer, BuildWeights, DEFAULT_WEIGHTS, PlayerScore } from '@/lib/nba/playerScorer'
-import SavedList from '@/components/SavedList'
 import Toast from '@/components/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { matchContract } from '@/lib/nba/matchContract'
 import AttributeFilterPicker, { AttrFilter, ATTRS } from '@/components/AttributeFilterPicker'
 import TeamLogo from '@/components/TeamLogo'
+import { useOwnershipMap, type OwnershipMap } from '@/hooks/useRoster'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -242,15 +241,15 @@ export default function DraftBuilderPage() {
   const [contracts, setContracts] = useState<ContractEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [minOvr, setMinOvr] = useState(75)
   const [posFilter, setPosFilter] = useState<string | null>(null)
   const [attrFilters, setAttrFilters] = useState<AttrFilter[]>([])
-  const [showSaved, setShowSaved] = useState(false)
+  // showSaved removed — Rosa merged into Roster
   // Draft class filter
   const [draftYears, setDraftYears] = useState<number[]>([])
   const [draftPicks, setDraftPicks] = useState<Map<string, DraftPick>>(new Map())
   const [draftLoading, setDraftLoading] = useState(false)
   const loadedDraftYears = useRef(new Set<number>())
+  const [activeTab, setActiveTab] = useState<'players' | 'roster'>('players')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   // Drafted (hidden) players — per-user localStorage
   const [userId, setUserId] = useState<string | null>(null)
@@ -263,8 +262,8 @@ export default function DraftBuilderPage() {
       return [...prev, key]
     })
   }, [])
-  const { savedPlayers, isSaved, savePlayer, removePlayer, clearAll } = useSavedPlayers()
-  const { toasts, dismissToast } = useCapToasts(savedPlayers, contracts)
+  const { toasts, dismissToast } = useCapToasts([], contracts)
+  const { map: ownershipMap, myRosterSlugs, reload: reloadOwnership } = useOwnershipMap()
 
   // Load userId and drafted slugs from localStorage
   useEffect(() => {
@@ -364,7 +363,7 @@ export default function DraftBuilderPage() {
 
   const scored = useMemo(() => {
     return players
-      .filter(p => p.overall >= minOvr)
+
       .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
       .filter(p => !posFilter || p.positions.includes(posFilter))
       .filter(p => attrFilters.every(f => (p.attributes[f.key] ?? 0) >= f.min))
@@ -388,7 +387,7 @@ export default function DraftBuilderPage() {
         }
         return 0
       })
-  }, [players, potentials, contracts, weights, minOvr, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortKeys])
+  }, [players, potentials, contracts, weights, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortKeys])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -424,14 +423,6 @@ export default function DraftBuilderPage() {
                 className="text-xs px-3 py-1.5 rounded-lg outline-none w-32"
                 style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--text)' }}
               />
-              <select
-                value={minOvr}
-                onChange={e => setMinOvr(Number(e.target.value))}
-                className="text-xs px-2 py-1.5 rounded-lg outline-none"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--text)' }}
-              >
-                {[65, 70, 75, 78, 80, 82, 85].map(v => <option key={v} value={v}>{v}+</option>)}
-              </select>
               <div className="flex gap-1 border-l pl-2" style={{ borderColor: 'var(--border)' }}>
                 {([['score','Score'],['ovr','OVR'],['contract','$'],['badges','Badge']] as const).map(([key, label]) => {
                   const idx = sortKeys.indexOf(key)
@@ -466,18 +457,13 @@ export default function DraftBuilderPage() {
               ☰
             </button>
 
-            {/* Rosa — always visible */}
+            {/* Dashboard */}
             <button
-              onClick={() => setShowSaved(true)}
-              className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded transition-colors"
-              style={{ background: 'rgba(232,160,32,0.12)', color: 'var(--gold)', border: '1px solid rgba(232,160,32,0.3)' }}
+              onClick={() => router.push('/dashboard')}
+              className="text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+              style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
             >
-              <span className="hidden sm:inline">La mia </span>Rosa
-              {savedPlayers.length > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold)', color: '#000' }}>
-                  {savedPlayers.length}
-                </span>
-              )}
+              ← Home
             </button>
 
             {/* Esci */}
@@ -490,6 +476,29 @@ export default function DraftBuilderPage() {
             </button>
           </div>
         </div>
+
+        {/* Tab bar */}
+        <div className="max-w-7xl mx-auto px-4 flex gap-1" style={{ borderTop: '1px solid var(--border2)' }}>
+          {([['players', 'PLAYER LIST'], ['roster', 'IL MIO ROSTER']] as const).map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className="text-xs font-bold px-4 py-2.5 transition-colors font-display tracking-wide"
+              style={{
+                color: activeTab === t ? 'var(--gold)' : 'var(--text-dim)',
+                borderBottom: activeTab === t ? '2px solid var(--gold)' : '2px solid transparent',
+                marginBottom: '-1px',
+              }}
+            >
+              {label}
+              {t === 'roster' && myRosterSlugs.size > 0 && (
+                <span className="ml-1.5 text-[10px] font-bold px-1 py-0.5 rounded tabular-nums" style={{ background: 'var(--gold)', color: '#000' }}>
+                  {myRosterSlugs.size}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* Mobile sidebar backdrop */}
@@ -501,7 +510,11 @@ export default function DraftBuilderPage() {
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-6 flex gap-5">
+      {activeTab === 'roster' && (
+        <RosterTab players={players} onAddPlayers={() => setActiveTab('players')} onRosterChange={reloadOwnership} />
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 py-6 flex gap-5" style={{ display: activeTab === 'players' ? 'flex' : 'none' }}>
         {/* Sidebar — responsive drawer on mobile, static on desktop */}
         <aside
           className={`fixed lg:static inset-y-0 lg:inset-y-auto left-0 lg:left-auto z-50 lg:z-auto w-72 lg:w-64 shrink-0 overflow-y-auto lg:overflow-visible transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
@@ -546,14 +559,6 @@ export default function DraftBuilderPage() {
               className="w-full text-xs px-3 py-2 rounded-lg outline-none"
               style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--text)' }}
             />
-            <select
-              value={minOvr}
-              onChange={e => setMinOvr(Number(e.target.value))}
-              className="w-full text-xs px-2 py-2 rounded-lg outline-none"
-              style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--text)' }}
-            >
-              {[65, 70, 75, 78, 80, 82, 85].map(v => <option key={v} value={v}>OVR {v}+</option>)}
-            </select>
             <div>
               <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'var(--text-dim)' }}>Ordina per</div>
               <div className="flex gap-1.5 flex-wrap">
@@ -736,13 +741,13 @@ export default function DraftBuilderPage() {
                   score={score}
                   rank={idx + 1}
                   pick={pick}
-                  isSaved={isSaved(player.slug)}
-                  onSave={() => savePlayer(player)}
-                  onRemove={() => removePlayer(player.slug)}
                   weights={weights}
                   attrFilters={attrFilters}
                   isDrafted={draftedSlugs.has(player.slug)}
                   onToggleDrafted={() => toggleDrafted(player.slug)}
+                  ownershipMap={ownershipMap}
+                  isInMyRoster={myRosterSlugs.has(player.slug)}
+                  onRosterChange={reloadOwnership}
                 />
               ))}
             </div>
@@ -751,16 +756,6 @@ export default function DraftBuilderPage() {
       </div>
 
       <Toast messages={toasts} onDismiss={dismissToast} />
-
-      {showSaved && (
-        <SavedList
-          players={savedPlayers}
-          contracts={contracts}
-          onRemove={removePlayer}
-          onClearAll={clearAll}
-          onClose={() => setShowSaved(false)}
-        />
-      )}
     </div>
   )
 }
@@ -768,7 +763,8 @@ export default function DraftBuilderPage() {
 // ── Row component ─────────────────────────────────────────────────────────────
 
 function DraftBuilderRow({
-  player, extra, contract, score, rank, pick, isSaved, onSave, onRemove, weights, attrFilters, isDrafted, onToggleDrafted,
+  player, extra, contract, score, rank, pick, weights, attrFilters, isDrafted, onToggleDrafted,
+  ownershipMap, isInMyRoster, onRosterChange,
 }: {
   player: Player
   extra: PlayerExtra | undefined
@@ -776,13 +772,13 @@ function DraftBuilderRow({
   score: PlayerScore
   rank: number
   pick: DraftPick | null
-  isSaved: boolean
-  onSave: () => void
-  onRemove: () => void
   weights: BuildWeights
   attrFilters: AttrFilter[]
   isDrafted: boolean
   onToggleDrafted: () => void
+  ownershipMap: OwnershipMap
+  isInMyRoster: boolean
+  onRosterChange: () => void
 }) {
   const pot = extra?.potential
   const age = extra?.age
@@ -790,6 +786,23 @@ function DraftBuilderRow({
   const firstSalary = contract?.salaries[0]
   const salary = firstSalary?.amount
   const note = firstSalary?.note
+
+  const ownership = ownershipMap[player.slug]
+  const isTakenByOther = !!ownership && !isInMyRoster
+  const [rosterActing, setRosterActing] = useState(false)
+
+  async function handleRosterToggle() {
+    setRosterActing(true)
+    const method = isInMyRoster ? 'DELETE' : 'POST'
+    const res = await fetch('/api/roster', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerSlug: player.slug }),
+    })
+    const json = await res.json()
+    setRosterActing(false)
+    if (!json.error) onRosterChange()
+  }
 
   return (
     <div
@@ -988,16 +1001,28 @@ function DraftBuilderRow({
 
       {/* Actions */}
       <div className="flex flex-col gap-1.5 shrink-0">
-        <button
-          onClick={isSaved ? onRemove : onSave}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
-          style={isSaved
-            ? { background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }
-            : { background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }
-          }
-        >
-          {isSaved ? 'Rimuovi' : '+ Rosa'}
-        </button>
+        {/* Roster button — primary action for 2.0 */}
+        {isTakenByOther ? (
+          <div
+            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-center whitespace-nowrap"
+            style={{ background: 'rgba(148,163,184,0.08)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}
+            title={`In roster: ${ownership.franchiseName}`}
+          >
+            🔒 {ownership.abbreviation}
+          </div>
+        ) : (
+          <button
+            onClick={handleRosterToggle}
+            disabled={rosterActing}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+            style={isInMyRoster
+              ? { background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }
+              : { background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)' }
+            }
+          >
+            {rosterActing ? '…' : isInMyRoster ? '✓ Roster' : '+ Roster'}
+          </button>
+        )}
         <button
           onClick={e => { e.stopPropagation(); onToggleDrafted() }}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
@@ -1009,6 +1034,233 @@ function DraftBuilderRow({
           {isDrafted ? '↩ Ripristina' : 'Preso'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Roster Tab ────────────────────────────────────────────────────────────────
+
+const MAX_ROSTER = 15
+
+function RosterTab({
+  players,
+  onAddPlayers,
+  onRosterChange,
+}: {
+  players: Player[]
+  onAddPlayers: () => void
+  onRosterChange: () => void
+}) {
+  const [memberships, setMemberships] = useState<Array<{ id: string; player_slug: string; status: string }>>([])
+  const [franchiseName, setFranchiseName] = useState<string | null>(null)
+  const [seasonName, setSeasonName] = useState<string | null>(null)
+  const [hasFranchise, setHasFranchise] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [acting, setActing] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  const isFull = memberships.length >= MAX_ROSTER
+
+  function showToast(msg: string, ok = true) {
+    setToast({ msg, ok })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const [mineRes, ctxRes] = await Promise.all([
+      fetch('/api/roster?type=mine'),
+      fetch('/api/roster?type=context'),
+    ])
+    if (mineRes.ok) setMemberships(await mineRes.json())
+    if (ctxRes.ok) {
+      const ctx = await ctxRes.json()
+      setFranchiseName(ctx.franchiseName)
+      setSeasonName(ctx.seasonName)
+      setHasFranchise(ctx.hasFranchise)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { reload() }, [reload])
+
+  async function removePlayer(slug: string) {
+    setActing(slug)
+    const res = await fetch('/api/roster', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerSlug: slug }),
+    })
+    const json = await res.json()
+    setActing(null)
+    if (json.error) { showToast(json.error, false); return }
+    setMemberships(prev => prev.filter(m => m.player_slug !== slug))
+    onRosterChange()
+    showToast('Giocatore rimosso dal roster')
+  }
+
+  function ovrColor(ovr: number) {
+    if (ovr >= 95) return '#fde047'
+    if (ovr >= 90) return '#c084fc'
+    if (ovr >= 85) return '#60a5fa'
+    if (ovr >= 80) return '#4ade80'
+    return 'var(--text-sec)'
+  }
+
+  const playerMap = useMemo(() => {
+    const m: Record<string, Player> = {}
+    for (const p of players) m[p.slug] = p
+    return m
+  }, [players])
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      {/* Franchise header */}
+      {franchiseName && !loading && (
+        <div className="rounded-xl px-5 py-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="font-display text-2xl font-black tracking-wider" style={{ color: 'var(--text)' }}>
+            {franchiseName.toUpperCase()}
+          </div>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="text-center">
+              <div className="font-display text-xl font-black" style={{ color: 'var(--text)' }}>{memberships.length}</div>
+              <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Giocatori</div>
+            </div>
+            <div className="text-center">
+              <div className="font-display text-xl font-black" style={{ color: 'var(--text-dim)' }}>{MAX_ROSTER}</div>
+              <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Max</div>
+            </div>
+            {seasonName && (
+              <div className="ml-auto text-xs" style={{ color: 'var(--text-dim)' }}>{seasonName}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* No franchise */}
+      {!hasFranchise && !loading && (
+        <div className="rounded-xl px-5 py-6 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="text-2xl mb-2">🏀</div>
+          <p className="font-display font-black tracking-wide" style={{ color: 'var(--text)' }}>NON SEI ANCORA ASSEGNATO</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>Attendi che un admin ti assegni una franchigia.</p>
+        </div>
+      )}
+
+      {/* Status bar */}
+      {hasFranchise && !loading && (
+        <div
+          className="rounded-xl px-5 py-3 flex items-center justify-between"
+          style={{
+            background: isFull ? 'rgba(251,146,60,0.06)' : 'rgba(59,130,246,0.05)',
+            border: `1px solid ${isFull ? 'rgba(251,146,60,0.25)' : 'rgba(59,130,246,0.2)'}`,
+          }}
+        >
+          <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
+            {isFull
+              ? `Roster pieno (${memberships.length}/${MAX_ROSTER})`
+              : `${memberships.length}/${MAX_ROSTER} giocatori`}
+          </p>
+          {!isFull && (
+            <button
+              onClick={onAddPlayers}
+              className="font-display font-black tracking-wide text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}
+            >
+              + Aggiungi
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Player list */}
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--surface)' }} />
+          ))}
+        </div>
+      ) : memberships.length === 0 ? (
+        hasFranchise && (
+          <div className="text-center py-12">
+            <p className="text-4xl mb-3">👥</p>
+            <p className="font-display font-black tracking-wide" style={{ color: 'var(--text-sec)' }}>NESSUN GIOCATORE</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>Usa la Player List per aggiungere giocatori al roster.</p>
+            <button
+              onClick={onAddPlayers}
+              className="mt-4 font-display font-black tracking-wide text-sm px-5 py-2.5 rounded-xl"
+              style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}
+            >
+              VAI ALLA PLAYER LIST
+            </button>
+          </div>
+        )
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+          {memberships.map((m, i) => {
+            const player = playerMap[m.player_slug]
+            const isActing = acting === m.player_slug
+            const statusStyle = m.status === 'confirmed'
+              ? { label: 'CONFERMATO', color: '#4ade80', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' }
+              : { label: 'SELEZIONATO', color: '#60a5fa', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)' }
+
+            return (
+              <div
+                key={m.id}
+                className="flex items-center gap-3 px-4 py-3 transition-opacity"
+                style={{
+                  background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
+                  borderBottom: i < memberships.length - 1 ? '1px solid var(--border)' : 'none',
+                  opacity: isActing ? 0.5 : 1,
+                }}
+              >
+                <div
+                  className="font-display text-2xl font-black w-10 text-center shrink-0"
+                  style={{ color: player ? ovrColor(player.overall) : 'var(--text-dim)' }}
+                >
+                  {player?.overall ?? '—'}
+                </div>
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => window.open(`/player/${m.player_slug}`, '_blank')}
+                >
+                  <div className="font-display font-bold text-base leading-tight truncate" style={{ color: 'var(--text)' }}>
+                    {player?.name ?? m.player_slug}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {player?.positions.map(pos => (
+                      <span key={pos} className="text-[10px] font-black px-1.5 py-0.5 rounded tracking-wide"
+                        style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
+                        {pos}
+                      </span>
+                    ))}
+                    {player?.team && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{player.team}</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => removePlayer(m.player_slug)}
+                  disabled={isActing}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg shrink-0"
+                  style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}
+                >
+                  {isActing ? '…' : 'Rimuovi'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl text-sm font-semibold shadow-xl"
+          style={{
+            background: toast.ok ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+            color: toast.ok ? '#4ade80' : '#f87171',
+            border: `1px solid ${toast.ok ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}`,
+          }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }

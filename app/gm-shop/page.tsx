@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import GmShopClient from './GmShopClient'
 
-export default async function Home() {
+export default async function GmShopPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
@@ -13,5 +13,5 @@ export default async function Home() {
     .eq('id', user.id)
     .single()
 
-  redirect('/dashboard')
+  return <GmShopClient />
 }

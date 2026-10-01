@@ -256,10 +256,9 @@ export default function DraftPage() {
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }} className="sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/" className="text-xs font-medium transition-colors" style={{ color: 'var(--text-sec)' }}>
-              ← Lista
+            <a href="/dashboard" className="text-xs font-semibold px-3 py-1.5 rounded" style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
+              ← Dashboard
             </a>
-            <span style={{ color: 'var(--border)' }}>|</span>
             <h1 className="font-display text-2xl font-bold tracking-wider" style={{ color: 'var(--gold)' }}>
               DRAFT
             </h1>
