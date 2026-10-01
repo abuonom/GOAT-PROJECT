@@ -6,15 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:login": "supabase login",
+    "db:link": "supabase link --project-ref sodtdfshhrwpqspjqrnu",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "next": "16.3.3",
-    "playwright": "^1.62.1",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -25,6 +26,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "playwright": "^1.62.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "supabase": "^2.119.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
