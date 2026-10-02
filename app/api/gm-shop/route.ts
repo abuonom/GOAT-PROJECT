@@ -51,12 +51,29 @@ export async function GET(req: NextRequest) {
       .eq('season_id', season.id)
       .neq('status', 'released')
 
+    const rosterSlugs = (roster ?? []).map(r => r.player_slug)
+
+    // Fetch name/OVR for all roster players upfront
+    const { data: playerRows } = rosterSlugs.length > 0
+      ? await supabase.from('players').select('slug, data').in('slug', rosterSlugs)
+      : { data: [] }
+
+    const rosterPlayers = rosterSlugs.map(slug => {
+      const row = (playerRows ?? []).find(p => p.slug === slug)
+      return {
+        slug,
+        name: row?.data?.name ?? null,
+        overall: row?.data?.overall ?? null,
+      }
+    })
+
     return NextResponse.json({
       balance: balance ?? 0,
       seasonId: season.id,
       seasonName: season.name,
       franchise: (member?.franchises as unknown as { name: string; abbreviation: string } | null),
-      rosterSlugs: (roster ?? []).map(r => r.player_slug),
+      rosterSlugs,
+      rosterPlayers,
       upgrades: upgrades ?? [],
     })
   }

@@ -15,12 +15,19 @@ interface ShopUpgrade {
   created_at: string
 }
 
+interface RosterPlayer {
+  slug: string
+  name: string | null
+  overall: number | null
+}
+
 interface ShopContext {
   balance: number
   seasonId: string
   seasonName: string
   franchise: { name: string; abbreviation: string } | null
   rosterSlugs: string[]
+  rosterPlayers: RosterPlayer[]
   upgrades: ShopUpgrade[]
 }
 
@@ -237,8 +244,11 @@ export default function GmShopClient() {
               </div>
             ) : (
               <div className="px-4 pb-5 space-y-1.5 lg:space-y-1">
-                {context.rosterSlugs.map(slug => {
+                {(context.rosterPlayers ?? context.rosterSlugs.map(s => ({ slug: s, name: null, overall: null }))).map(rp => {
+                  const slug = rp.slug
                   const p = playerData[slug]
+                  const displayName = p?.name ?? rp.name
+                  const displayOvr = p?.overall ?? rp.overall
                   const upgCount = context.upgrades.filter(u => u.player_slug === slug).length
                   const isSelected = selectedSlug === slug
                   return (
@@ -252,15 +262,15 @@ export default function GmShopClient() {
                       }}
                     >
                       <div className="flex items-center gap-2.5">
-                        {p && (
+                        {displayOvr != null && (
                           <span className="font-display font-black text-lg w-9 text-center shrink-0"
-                            style={{ color: ovrColor(p.overall) }}>
-                            {p.overall}
+                            style={{ color: ovrColor(displayOvr) }}>
+                            {displayOvr}
                           </span>
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold truncate" style={{ color: isSelected ? 'var(--gold)' : 'var(--text)' }}>
-                            {p?.name ?? slug.replace(/-/g, ' ')}
+                            {displayName ?? slug.replace(/-/g, ' ')}
                           </div>
                           {upgCount > 0 && (
                             <div className="text-[10px] mt-0.5" style={{ color: upgCount >= 3 ? '#f87171' : '#60a5fa' }}>
