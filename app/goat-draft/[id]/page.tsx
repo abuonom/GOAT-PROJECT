@@ -61,12 +61,6 @@ export default function GoatDraftSessionPage({
     if (!profileLoading) fetchState()
   }, [profileLoading, fetchState])
 
-  // Refs to avoid stale closures in Realtime callbacks
-  const fetchStateRef = useRef(fetchState)
-  const fetchCatalogRef = useRef(fetchCatalog)
-  useEffect(() => { fetchStateRef.current = fetchState }, [fetchState])
-  useEffect(() => { fetchCatalogRef.current = fetchCatalog }, [fetchCatalog])
-
   // ── Supabase Realtime subscription ───────────────────────────────────────
 
   useEffect(() => {
@@ -110,6 +104,12 @@ export default function GoatDraftSessionPage({
   useEffect(() => {
     if (!profileLoading && state) fetchCatalog()
   }, [profileLoading, state, fetchCatalog])
+
+  // Refs to avoid stale closures in Realtime callbacks
+  const fetchStateRef = useRef(fetchState)
+  const fetchCatalogRef = useRef(fetchCatalog)
+  useEffect(() => { fetchStateRef.current = fetchState }, [fetchState])
+  useEffect(() => { fetchCatalogRef.current = fetchCatalog }, [fetchCatalog])
 
   // Fetch roles/teams once
   useEffect(() => {
