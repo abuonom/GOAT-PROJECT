@@ -10,7 +10,8 @@
     "db:login": "supabase login",
     "db:link": "supabase link --project-ref sodtdfshhrwpqspjqrnu",
     "db:push": "supabase db push",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "import:dunkest": "node scripts/import-dunkest.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
@@ -31,6 +32,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "supabase": "^2.119.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   }
 }
