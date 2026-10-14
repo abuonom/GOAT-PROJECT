@@ -49,12 +49,12 @@ export async function POST(request: Request) {
     .select('user_id, status')
     .in('user_id', otherUserIds)
 
-  const approvedIds = new Set((accessRows ?? []).filter(r => r.status === 'approved').map(r => r.user_id))
+  const approvedIds = new Set((accessRows ?? []).filter((r: { user_id: string; status: string }) => r.status === 'approved').map((r: { user_id: string; status: string }) => r.user_id))
   const notApproved = otherUserIds.filter(id => !approvedIds.has(id))
   if (notApproved.length > 0) {
     // Fetch display names for better error message
     const { data: notApprovedProfiles } = await adminSupabase.from('profiles').select('id, display_name').in('id', notApproved)
-    const names = (notApprovedProfiles ?? []).map(p => p.display_name ?? p.id).join(', ')
+    const names = (notApprovedProfiles ?? []).map((p: { id: string; display_name: string | null }) => p.display_name ?? p.id).join(', ')
     return NextResponse.json({ error: `Utenti non approvati: ${names || notApproved.join(', ')}` }, { status: 400 })
   }
 
