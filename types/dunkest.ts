@@ -1,6 +1,13 @@
 // Types for the DUNKEST GOAT DRAFT feature.
 // Completely separate from NBA 2K player data.
 
+// Roster composition: role → max slots per team
+export const ROLE_LIMITS: Record<string, number> = { G: 5, A: 5, C: 3, HC: 1 }
+export const TOTAL_ROUNDS = Object.values(ROLE_LIMITS).reduce((a, b) => a + b, 0) // 14
+
+// Remaining slots per role for a specific participant
+export type RosterSlots = Record<string, number>
+
 export interface DunkestPlayer {
   id: number
   name: string

@@ -107,6 +107,24 @@ const ok   = label        => { console.log(`  ✓  ${label}`); passed++ }
 const fail = (label, det) => { console.error(`  ✗  ${label}`, det ?? ''); failed++ }
 const assert = (cond, label, det) => cond ? ok(label) : fail(label, det)
 
+// ── Pre-cleanup: remove leftover test users from previous runs ────────────────
+
+const TEST_EMAILS = [
+  'test-admin@goatdraft.test',
+  ...Array.from({ length: 7 }, (_, i) => `test-gm${i + 1}@goatdraft.test`),
+]
+
+async function preCleanup() {
+  const { data } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+  for (const email of TEST_EMAILS) {
+    const user = (data?.users ?? []).find(u => u.email === email)
+    if (user) {
+      await supabaseAdmin.from('dunkest_draft_access').delete().eq('user_id', user.id)
+      await supabaseAdmin.auth.admin.deleteUser(user.id)
+    }
+  }
+}
+
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 async function createTestUsers() {
@@ -123,14 +141,29 @@ async function createTestUsers() {
 
   const users = []
   for (const spec of specs) {
+    let userId
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: spec.email,
       password: spec.password,
       email_confirm: true,
     })
-    if (error) { fail(`Create user ${spec.email}`, error.message); continue }
+    if (error) {
+      if (error.message.toLowerCase().includes('already')) {
+        // User exists from a previous run — reuse it
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+        const existing = listData?.users.find(u => u.email === spec.email)
+        if (!existing) { fail(`Create/find user ${spec.email}`, error.message); continue }
+        userId = existing.id
+        await supabaseAdmin.auth.admin.updateUserById(userId, { password: spec.password, email_confirm: true })
+      } else {
+        fail(`Create user ${spec.email}`, error.message)
+        continue
+      }
+    } else {
+      userId = data.user.id
+    }
 
-    const id = data.user.id
+    const id = userId
     createdUserIds.push(id)
 
     const { error: pErr } = await supabaseAdmin
@@ -187,14 +220,16 @@ async function runTests(users) {
   // ── 4. Admin sees requests ─────────────────────────────────────────────────
   console.log('\n── 4. Admin views requests ──────────────────────────────────')
   const { json: j4 } = await api('GET', '/api/admin/goat-draft-access', null, adminCookie)
-  assert(j4?.requests?.length === 7, `Admin sees 7 requests (got ${j4?.requests?.length})`)
+  const testGmIds = new Set(gms.map(g => g.id))
+  const testRequests = (j4?.requests ?? []).filter(r => testGmIds.has(r.user_id))
+  assert(testRequests.length === 7, `Admin sees 7 test requests (got ${testRequests.length} of ${j4?.requests?.length} total)`)
 
   const { status: s4b } = await api('GET', '/api/admin/goat-draft-access', null, gmCookies[0])
   assert(s4b === 403, 'Non-admin → 403')
 
   // ── 5. Admin approves all ──────────────────────────────────────────────────
   console.log('\n── 5. Admin approves all ────────────────────────────────────')
-  for (const r of j4.requests) {
+  for (const r of testRequests) {
     const { json } = await api('PATCH', '/api/admin/goat-draft-access', { id: r.id, action: 'approve' }, adminCookie)
     assert(json?.success, `Approved ${r.display_name ?? r.email}`)
   }
@@ -376,6 +411,8 @@ async function main() {
 
   try { await fetch(`${BASE_URL}/api/goat-draft`) }
   catch { console.error(`\nServer non raggiungibile su ${BASE_URL}. Avvia con: npm run dev\n`); process.exit(1) }
+
+  await preCleanup()
 
   let users = []
   try {

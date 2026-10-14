@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { createClient } from '@/lib/supabase/client'
-import type { GoatDraftState, DunkestPlayer, GoatDraftParticipant } from '@/types/dunkest'
+import type { GoatDraftState, DunkestPlayer, GoatDraftParticipant, RosterSlots } from '@/types/dunkest'
+import { ROLE_LIMITS, TOTAL_ROUNDS } from '@/types/dunkest'
 
 type Tab = 'catalogo' | 'rose' | 'cronologia'
 
@@ -24,6 +25,7 @@ export default function GoatDraftSessionPage({
 
   // Catalog
   const [catalog, setCatalog] = useState<DunkestPlayer[]>([])
+  const [myRosterSlots, setMyRosterSlots] = useState<RosterSlots | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -92,7 +94,7 @@ export default function GoatDraftSessionPage({
     if (teamFilter) params.set('team', teamFilter)
     const res = await fetch(`/api/goat-draft/${sessionId}/catalog?${params}`)
     const json = await res.json()
-    if (!json.error) setCatalog(json.players ?? [])
+    if (!json.error) { setCatalog(json.players ?? []); setMyRosterSlots(json.myRosterSlots ?? null) }
     setCatalogLoading(false)
   }, [sessionId, search, roleFilter, teamFilter])
 
@@ -229,7 +231,7 @@ export default function GoatDraftSessionPage({
           {isActive && (
             <div className="mt-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--text-dim)' }}>
-                <span>GIRO {session.current_round} — SCELTA {session.current_pick_index + 1}/8</span>
+                <span>GIRO {session.current_round}/{TOTAL_ROUNDS} — SCELTA {session.current_pick_index + 1}/8</span>
                 <span>{globalPicksDone} pick totali</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
@@ -306,6 +308,35 @@ export default function GoatDraftSessionPage({
         {/* ── CATALOGO tab ── */}
         {tab === 'catalogo' && (
           <div className="space-y-3">
+            {/* My roster slots */}
+            {myParticipant && myRosterSlots && (
+              <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="text-[10px] font-black font-display tracking-widest" style={{ color: 'var(--text-dim)' }}>
+                  SLOT DISPONIBILI
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {Object.entries(ROLE_LIMITS).map(([role, limit]) => {
+                    const remaining = myRosterSlots![role] ?? limit
+                    const full = remaining === 0
+                    return (
+                      <span
+                        key={role}
+                        className="text-xs px-2.5 py-1 rounded font-display font-black tracking-wide"
+                        style={{
+                          background: full ? 'rgba(74,222,128,0.1)' : 'var(--surface2)',
+                          color: full ? '#4ade80' : 'var(--text)',
+                          border: `1px solid ${full ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
+                        }}
+                      >
+                        {role} {limit - remaining}/{limit}
+                        {full && ' ✓'}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Filters */}
             <div className="flex gap-2 flex-wrap">
               <input
@@ -351,6 +382,7 @@ export default function GoatDraftSessionPage({
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                 {catalog.map((player, i) => {
                   const isSelected = selectedPlayer?.id === player.id
+                  const roleSlotFull = myRosterSlots != null && (myRosterSlots[player.role] ?? 1) <= 0
                   return (
                     <div
                       key={player.id}
@@ -361,10 +393,12 @@ export default function GoatDraftSessionPage({
                           : i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
                         borderBottom: i < catalog.length - 1 ? '1px solid var(--border)' : 'none',
                         borderLeft: isSelected ? '3px solid var(--gold)' : '3px solid transparent',
+                        opacity: roleSlotFull ? 0.4 : 1,
                       }}
                       onClick={() => {
                         if (!isActive) return
                         if (!isMyTurn) { showToast('Non è il tuo turno', false); return }
+                        if (roleSlotFull) { showToast(`Slot ${player.role} già al completo`, false); return }
                         setSelectedPlayer(isSelected ? null : player)
                         setConfirming(false)
                       }}
@@ -445,21 +479,36 @@ export default function GoatDraftSessionPage({
                     </div>
                   </div>
 
-                  {/* Player list */}
+                  {/* Player list grouped by role */}
                   {myPicks.length > 0 && (
-                    <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-                      {myPicks.map(pick => (
-                        <span
-                          key={pick.id}
-                          className="text-[11px] px-2 py-1 rounded-lg font-semibold"
-                          style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
-                        >
-                          {(pick.dunkest_player as DunkestPlayer | undefined)?.name ?? `#${pick.dunkest_player_id}`}
-                          <span className="ml-1" style={{ color: 'var(--gold)' }}>
-                            {pick.player_value_at_pick}
-                          </span>
-                        </span>
-                      ))}
+                    <div className="px-4 pb-3 space-y-2">
+                      {Object.entries(ROLE_LIMITS).map(([role, limit]) => {
+                        const rolePicks = myPicks.filter(pick =>
+                          (pick.dunkest_player as DunkestPlayer | undefined)?.role === role,
+                        )
+                        if (rolePicks.length === 0) return null
+                        return (
+                          <div key={role} className="space-y-1">
+                            <div className="text-[9px] font-black font-display tracking-widest" style={{ color: 'var(--text-dim)' }}>
+                              {role} ({rolePicks.length}/{limit})
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {rolePicks.map(pick => (
+                                <span
+                                  key={pick.id}
+                                  className="text-[11px] px-2 py-0.5 rounded font-semibold"
+                                  style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
+                                >
+                                  {(pick.dunkest_player as DunkestPlayer | undefined)?.name ?? `#${pick.dunkest_player_id}`}
+                                  <span className="ml-1 text-[10px]" style={{ color: 'var(--gold)' }}>
+                                    {pick.player_value_at_pick}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

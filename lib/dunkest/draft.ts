@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import type { GoatDraftParticipant, GoatDraftPick, GoatDraftSession, GoatDraftState } from '@/types/dunkest'
+import { ROLE_LIMITS, TOTAL_ROUNDS } from '@/types/dunkest'
 
 // ─── Read helpers ─────────────────────────────────────────────────────────────
 
@@ -146,11 +147,26 @@ export async function makePick(
   // 4. Verify the player exists in the Dunkest catalog
   const { data: player, error: plErr } = await supabase
     .from('dunkest_players')
-    .select('id, value')
+    .select('id, value, role')
     .eq('id', dunkestPlayerId)
     .single()
 
   if (plErr || !player) return { error: 'Giocatore non trovato nel catalogo Dunkest' }
+
+  // 4b. Check role slot availability
+  const roleLimit = ROLE_LIMITS[player.role]
+  if (roleLimit !== undefined) {
+    const { data: existingPicks } = await supabase
+      .from('goat_draft_picks')
+      .select('dunkest_player:dunkest_players(role)')
+      .eq('session_id', sessionId)
+      .eq('participant_id', participantId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const roleCount = (existingPicks ?? []).filter((p: any) => p.dunkest_player?.role === player.role).length
+    if (roleCount >= roleLimit) {
+      return { error: `Slot ${player.role} già al completo (max ${roleLimit})` }
+    }
+  }
 
   // 5. Compute pick metadata
   const globalPickNumber = session.total_picks + 1
@@ -218,6 +234,7 @@ async function advanceToNextRound(session: GoatDraftSession, supabase: any) {
   if (!participants) return
 
   const nextOrder = calculateNextRoundOrder(participants, session.current_round_order)
+  const nextRound = session.current_round + 1
 
   // Update each participant's current_round_position
   for (let i = 0; i < nextOrder.length; i++) {
@@ -227,10 +244,13 @@ async function advanceToNextRound(session: GoatDraftSession, supabase: any) {
       .eq('id', nextOrder[i])
   }
 
+  const isDraftComplete = nextRound > TOTAL_ROUNDS
+
   await supabase
     .from('goat_draft_sessions')
     .update({
-      current_round: session.current_round + 1,
+      status: isDraftComplete ? 'completed' : 'active',
+      current_round: nextRound,
       current_round_order: nextOrder,
       next_round_order: null,
       current_pick_index: 0,
