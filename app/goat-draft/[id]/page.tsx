@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { createClient } from '@/lib/supabase/client'
 import type { GoatDraftState, DunkestPlayer, GoatDraftParticipant, RosterSlots } from '@/types/dunkest'
-import { ROLE_LIMITS, TOTAL_ROUNDS } from '@/types/dunkest'
+import { ROLE_LIMITS, ROLE_LABELS, TOTAL_ROUNDS } from '@/types/dunkest'
 
 type Tab = 'catalogo' | 'rose' | 'cronologia'
 
@@ -375,7 +375,7 @@ export default function GoatDraftSessionPage({
                           border: `1px solid ${full ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
                         }}
                       >
-                        {role} {limit - remaining}/{limit}
+                        {ROLE_LABELS[role] ?? role} {limit - remaining}/{limit}
                         {full && ' ✓'}
                       </span>
                     )
@@ -423,7 +423,7 @@ export default function GoatDraftSessionPage({
                         border: `1px solid ${active ? 'var(--gold-dim)' : full ? 'rgba(74,222,128,0.25)' : 'var(--border)'}`,
                       }}
                     >
-                      {r || 'TUTTI'}
+                      {r ? (ROLE_LABELS[r] ?? r) : 'TUTTI'}
                       {remaining !== null && (
                         <span className="ml-1 font-sans font-normal" style={{ opacity: 0.7 }}>
                           {ROLE_LIMITS[r] - remaining}/{ROLE_LIMITS[r]}
@@ -559,7 +559,7 @@ export default function GoatDraftSessionPage({
                         return (
                           <div key={role} className="space-y-1">
                             <div className="text-[9px] font-black font-display tracking-widest" style={{ color: 'var(--text-dim)' }}>
-                              {role} ({rolePicks.length}/{limit})
+                              {ROLE_LABELS[role] ?? role} ({rolePicks.length}/{limit})
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {rolePicks.map(pick => (

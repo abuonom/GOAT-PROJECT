@@ -62,7 +62,7 @@ export async function POST(
   // Pick the highest-value available player in an open slot
   let query = adminSupabase
     .from('dunkest_players')
-    .select('id, value, role')
+    .select('id, name, value, role')
     .order('value', { ascending: false })
     .limit(1)
 
