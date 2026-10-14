@@ -187,6 +187,10 @@ export default function GoatDraftSessionPage({
   const isCompleted = session.status === 'completed'
 
   const picksThisRound = picks.filter(p => p.round_number === session.current_round)
+  // Hide players whose role is already full for the current participant
+  const visibleCatalog = myRosterSlots
+    ? catalog.filter(p => (myRosterSlots[p.role] ?? 1) > 0)
+    : catalog
   const globalPicksDone = picks.length
 
   return (
@@ -395,15 +399,18 @@ export default function GoatDraftSessionPage({
                   <div key={i} className="h-12 rounded-lg animate-pulse" style={{ background: 'var(--surface)' }} />
                 ))}
               </div>
-            ) : catalog.length === 0 ? (
+            ) : visibleCatalog.length === 0 ? (
               <div className="rounded-xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p style={{ color: 'var(--text-dim)' }}>Nessun giocatore disponibile.</p>
+                <p style={{ color: 'var(--text-dim)' }}>
+                  {myRosterSlots && catalog.length > 0
+                    ? 'Slot esauriti per i ruoli disponibili.'
+                    : 'Nessun giocatore disponibile.'}
+                </p>
               </div>
             ) : (
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                {catalog.map((player, i) => {
+                {visibleCatalog.map((player, i) => {
                   const isSelected = selectedPlayer?.id === player.id
-                  const roleSlotFull = myRosterSlots != null && (myRosterSlots[player.role] ?? 1) <= 0
                   return (
                     <div
                       key={player.id}
@@ -412,14 +419,12 @@ export default function GoatDraftSessionPage({
                         background: isSelected
                           ? 'rgba(212,160,23,0.08)'
                           : i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
-                        borderBottom: i < catalog.length - 1 ? '1px solid var(--border)' : 'none',
+                        borderBottom: i < visibleCatalog.length - 1 ? '1px solid var(--border)' : 'none',
                         borderLeft: isSelected ? '3px solid var(--gold)' : '3px solid transparent',
-                        opacity: roleSlotFull ? 0.4 : 1,
                       }}
                       onClick={() => {
                         if (!isActive) return
                         if (!isMyTurn) { showToast('Non è il tuo turno', false); return }
-                        if (roleSlotFull) { showToast(`Slot ${player.role} già al completo`, false); return }
                         setSelectedPlayer(isSelected ? null : player)
                         setConfirming(false)
                       }}
