@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, use } from 'react'
+import { useEffect, useState, useCallback, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { createClient } from '@/lib/supabase/client'
@@ -41,6 +41,12 @@ export default function GoatDraftSessionPage({
   const [botPicking, setBotPicking] = useState(false)
   const [deletingDemo, setDeletingDemo] = useState(false)
 
+  // Refs to avoid stale closures in Realtime callbacks
+  const fetchStateRef = useRef(fetchState)
+  const fetchCatalogRef = useRef(fetchCatalog)
+  useEffect(() => { fetchStateRef.current = fetchState }, [fetchState])
+  useEffect(() => { fetchCatalogRef.current = fetchCatalog }, [fetchCatalog])
+
   const [toast, setToast] = useState<{ msg: string; ok: boolean; key: number } | null>(null)
 
   function showToast(msg: string, ok = true) {
@@ -70,17 +76,17 @@ export default function GoatDraftSessionPage({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'goat_draft_sessions', filter: `id=eq.${sessionId}` },
-        () => { fetchState(); fetchCatalog() },
+        () => { fetchStateRef.current(); fetchCatalogRef.current() },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'goat_draft_picks', filter: `session_id=eq.${sessionId}` },
-        () => { fetchState(); fetchCatalog() },
+        () => { fetchStateRef.current(); fetchCatalogRef.current() },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'goat_draft_participants', filter: `session_id=eq.${sessionId}` },
-        () => fetchState(),
+        () => fetchStateRef.current(),
       )
       .subscribe()
 
