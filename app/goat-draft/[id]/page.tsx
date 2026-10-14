@@ -338,33 +338,54 @@ export default function GoatDraftSessionPage({
             )}
 
             {/* Filters */}
-            <div className="flex gap-2 flex-wrap">
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Cerca giocatore..."
-                className="flex-1 min-w-40 px-3 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
-              />
-              <select
-                value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
-              >
-                <option value="">Tutti i ruoli</option>
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <select
-                value={teamFilter}
-                onChange={e => setTeamFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
-              >
-                <option value="">Tutte le squadre</option>
-                {teams.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+            <div className="space-y-2">
+              {/* Search + team */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Cerca giocatore..."
+                  className="flex-1 min-w-0 px-3 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                />
+                <select
+                  value={teamFilter}
+                  onChange={e => setTeamFilter(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                >
+                  <option value="">Tutte le squadre</option>
+                  {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              {/* Role quick filters */}
+              <div className="flex gap-1.5 flex-wrap">
+                {['', ...Object.keys(ROLE_LIMITS)].map(r => {
+                  const active = roleFilter === r
+                  const remaining = r && myRosterSlots ? (myRosterSlots[r] ?? ROLE_LIMITS[r]) : null
+                  const full = remaining !== null && remaining === 0
+                  return (
+                    <button
+                      key={r || 'all'}
+                      onClick={() => setRoleFilter(r)}
+                      className="font-display font-black tracking-wide text-xs px-3 py-1.5 rounded-lg"
+                      style={{
+                        background: active ? 'var(--gold-bg)' : full ? 'rgba(74,222,128,0.06)' : 'var(--surface)',
+                        color: active ? 'var(--gold)' : full ? '#4ade80' : 'var(--text-sec)',
+                        border: `1px solid ${active ? 'var(--gold-dim)' : full ? 'rgba(74,222,128,0.25)' : 'var(--border)'}`,
+                      }}
+                    >
+                      {r || 'TUTTI'}
+                      {remaining !== null && (
+                        <span className="ml-1 font-sans font-normal" style={{ opacity: 0.7 }}>
+                          {ROLE_LIMITS[r] - remaining}/{ROLE_LIMITS[r]}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Catalog list */}
