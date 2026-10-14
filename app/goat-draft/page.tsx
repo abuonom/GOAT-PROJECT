@@ -28,7 +28,8 @@ interface AccessRequest {
 }
 
 interface ApprovedUser {
-  id: string
+  id: string       // access row id (used as React key)
+  user_id: string  // actual user UUID (sent to backend)
   display_name: string | null
   email: string | null
 }
@@ -506,11 +507,11 @@ export default function GoatDraftPage() {
               ) : (
                 <div className="space-y-1.5 max-h-56 overflow-y-auto">
                   {approvedUsers.map(u => {
-                    const selected = selectedIds.includes(u.id)
+                    const selected = selectedIds.includes(u.user_id)
                     return (
                       <button
                         key={u.id}
-                        onClick={() => toggleUser(u.id)}
+                        onClick={() => toggleUser(u.user_id)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left"
                         style={{
                           background: selected ? 'rgba(212,160,23,0.1)' : 'var(--surface2)',
@@ -520,7 +521,7 @@ export default function GoatDraftPage() {
                       >
                         <div className="w-4 h-4 rounded flex items-center justify-center shrink-0 text-[10px] font-black"
                           style={{ background: selected ? 'var(--gold)' : 'var(--border)', color: selected ? '#000' : 'transparent' }}>
-                          {selected ? selectedIds.indexOf(u.id) + 1 : ''}
+                          {selected ? selectedIds.indexOf(u.user_id) + 1 : ''}
                         </div>
                         <div className="min-w-0">
                           <div className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>
