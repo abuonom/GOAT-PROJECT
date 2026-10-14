@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createSession } from '@/lib/dunkest/draft'
 
@@ -42,8 +42,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Non includere l\'admin nella lista: viene aggiunto automaticamente' }, { status: 400 })
   }
 
-  // Verify all 7 other users are approved
-  const { data: accessRows } = await supabase
+  // Verify all 7 other users are approved (use admin client to bypass RLS)
+  const adminSupabase = createAdminClient()
+  const { data: accessRows } = await adminSupabase
     .from('dunkest_draft_access')
     .select('user_id, status')
     .in('user_id', otherUserIds)
@@ -51,7 +52,10 @@ export async function POST(request: Request) {
   const approvedIds = new Set((accessRows ?? []).filter(r => r.status === 'approved').map(r => r.user_id))
   const notApproved = otherUserIds.filter(id => !approvedIds.has(id))
   if (notApproved.length > 0) {
-    return NextResponse.json({ error: 'Alcuni utenti selezionati non sono approvati per il Dunkest Draft' }, { status: 400 })
+    // Fetch display names for better error message
+    const { data: notApprovedProfiles } = await adminSupabase.from('profiles').select('id, display_name').in('id', notApproved)
+    const names = (notApprovedProfiles ?? []).map(p => p.display_name ?? p.id).join(', ')
+    return NextResponse.json({ error: `Utenti non approvati: ${names || notApproved.join(', ')}` }, { status: 400 })
   }
 
   // Build full participant list: admin + 7 others
