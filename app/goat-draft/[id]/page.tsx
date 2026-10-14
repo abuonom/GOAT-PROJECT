@@ -41,12 +41,6 @@ export default function GoatDraftSessionPage({
   const [botPicking, setBotPicking] = useState(false)
   const [deletingDemo, setDeletingDemo] = useState(false)
 
-  // Refs to avoid stale closures in Realtime callbacks
-  const fetchStateRef = useRef(fetchState)
-  const fetchCatalogRef = useRef(fetchCatalog)
-  useEffect(() => { fetchStateRef.current = fetchState }, [fetchState])
-  useEffect(() => { fetchCatalogRef.current = fetchCatalog }, [fetchCatalog])
-
   const [toast, setToast] = useState<{ msg: string; ok: boolean; key: number } | null>(null)
 
   function showToast(msg: string, ok = true) {
@@ -66,6 +60,12 @@ export default function GoatDraftSessionPage({
   useEffect(() => {
     if (!profileLoading) fetchState()
   }, [profileLoading, fetchState])
+
+  // Refs to avoid stale closures in Realtime callbacks
+  const fetchStateRef = useRef(fetchState)
+  const fetchCatalogRef = useRef(fetchCatalog)
+  useEffect(() => { fetchStateRef.current = fetchState }, [fetchState])
+  useEffect(() => { fetchCatalogRef.current = fetchCatalog }, [fetchCatalog])
 
   // ── Supabase Realtime subscription ───────────────────────────────────────
 
