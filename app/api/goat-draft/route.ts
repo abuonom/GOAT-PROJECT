@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('goat_draft_sessions')
-    .select('id, name, status, current_round, total_picks, created_at, updated_at')
+    .select('id, name, status, current_round, total_picks, is_demo, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

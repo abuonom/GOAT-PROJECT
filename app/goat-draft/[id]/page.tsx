@@ -38,6 +38,9 @@ export default function GoatDraftSessionPage({
   const [confirming, setConfirming] = useState(false)
   const [picking, setPicking] = useState(false)
 
+  const [botPicking, setBotPicking] = useState(false)
+  const [deletingDemo, setDeletingDemo] = useState(false)
+
   const [toast, setToast] = useState<{ msg: string; ok: boolean; key: number } | null>(null)
 
   function showToast(msg: string, ok = true) {
@@ -112,6 +115,25 @@ export default function GoatDraftSessionPage({
   }, [profileLoading])
 
   // ── Actions ───────────────────────────────────────────────────────────────
+
+  async function handleBotPick() {
+    setBotPicking(true)
+    const res = await fetch(`/api/admin/demo-session/${sessionId}/bot-pick`, { method: 'POST' })
+    const json = await res.json()
+    setBotPicking(false)
+    if (json.error) showToast(json.error, false)
+    else showToast(json.roundAdvanced ? `🤖 ${json.player?.name} — giro avanzato!` : `🤖 ${json.player?.name} selezionato`)
+  }
+
+  async function handleDeleteDemo() {
+    if (!confirm('Eliminare questa sessione demo? L\'operazione è irreversibile.')) return
+    setDeletingDemo(true)
+    const res = await fetch(`/api/admin/demo-session?sessionId=${sessionId}`, { method: 'DELETE' })
+    const json = await res.json()
+    setDeletingDemo(false)
+    if (json.error) { showToast(json.error, false); return }
+    router.push('/goat-draft')
+  }
 
   async function handleStartDraft() {
     if (!confirm('Avviare il draft? L\'ordine iniziale è già estratto.')) return
@@ -225,6 +247,27 @@ export default function GoatDraftSessionPage({
                   style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.4)' }}
                 >
                   ▶ AVVIA
+                </button>
+              )}
+              {/* Demo controls */}
+              {session.is_demo && isAdmin && isActive && !isMyTurn && (
+                <button
+                  onClick={handleBotPick}
+                  disabled={botPicking}
+                  className="font-display font-black tracking-wide text-xs px-3 py-2 rounded-lg"
+                  style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', opacity: botPicking ? 0.6 : 1 }}
+                >
+                  {botPicking ? '...' : '🤖 AUTO'}
+                </button>
+              )}
+              {session.is_demo && isAdmin && (
+                <button
+                  onClick={handleDeleteDemo}
+                  disabled={deletingDemo}
+                  className="text-xs px-3 py-2 rounded-lg"
+                  style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', opacity: deletingDemo ? 0.6 : 1 }}
+                >
+                  {deletingDemo ? '...' : '✕ DEMO'}
                 </button>
               )}
               <StatusBadge status={session.status} />

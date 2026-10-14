@@ -15,6 +15,7 @@ interface SessionSummary {
   total_picks: number
   created_at: string
   updated_at: string
+  is_demo: boolean
 }
 
 interface AccessRequest {
@@ -60,6 +61,18 @@ export default function GoatDraftPage() {
   const [requests, setRequests] = useState<AccessRequest[]>([])
   const [requestsLoading, setRequestsLoading] = useState(false)
   const [actingId, setActingId] = useState<string | null>(null)
+
+  // Admin: demo session
+  const [creatingDemo, setCreatingDemo] = useState(false)
+
+  async function handleCreateDemo() {
+    setCreatingDemo(true)
+    const res = await fetch('/api/admin/demo-session', { method: 'POST' })
+    const json = await res.json()
+    setCreatingDemo(false)
+    if (json.error) { showToast(json.error, false); return }
+    router.push(`/goat-draft/${json.id}`)
+  }
 
   // Admin: create session dialog
   const [creating, setCreating] = useState(false)
@@ -208,13 +221,23 @@ export default function GoatDraftPage() {
             </span>
           </div>
           {isAdmin && accessStatus === 'approved' && (
-            <button
-              onClick={openCreate}
-              className="font-display font-black tracking-wide text-xs px-4 py-2 rounded-lg"
-              style={{ background: 'rgba(212,160,23,0.15)', color: 'var(--gold)', border: '1px solid rgba(212,160,23,0.4)' }}
-            >
-              + NUOVA SESSIONE
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreateDemo}
+                disabled={creatingDemo}
+                className="font-display font-black tracking-wide text-xs px-3 py-2 rounded-lg"
+                style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', opacity: creatingDemo ? 0.6 : 1 }}
+              >
+                {creatingDemo ? '...' : '🤖 DEMO'}
+              </button>
+              <button
+                onClick={openCreate}
+                className="font-display font-black tracking-wide text-xs px-4 py-2 rounded-lg"
+                style={{ background: 'rgba(212,160,23,0.15)', color: 'var(--gold)', border: '1px solid rgba(212,160,23,0.4)' }}
+              >
+                + NUOVA
+              </button>
+            </div>
           )}
         </div>
 
@@ -331,8 +354,16 @@ export default function GoatDraftPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-display font-black text-base tracking-wide truncate" style={{ color: 'var(--text)' }}>
-                          {s.name}
+                        <div className="flex items-center gap-2">
+                          <span className="font-display font-black text-base tracking-wide truncate" style={{ color: 'var(--text)' }}>
+                            {s.name}
+                          </span>
+                          {s.is_demo && (
+                            <span className="text-[9px] font-black font-display tracking-wider px-1.5 py-0.5 rounded shrink-0"
+                              style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+                              DEMO
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
                           Giro {s.current_round} · {s.total_picks} pick · {new Date(s.updated_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}

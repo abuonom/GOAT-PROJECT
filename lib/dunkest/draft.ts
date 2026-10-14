@@ -111,6 +111,7 @@ export async function makePick(
   participantId: string,
   dunkestPlayerId: number,
   actingUserId: string,
+  options?: { skipUserCheck?: boolean },
 ): Promise<MakePickResult> {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
@@ -142,7 +143,7 @@ export async function makePick(
     .single()
 
   if (pErr || !participant) return { error: 'Partecipante non trovato' }
-  if (participant.user_id !== actingUserId) return { error: 'Accesso non autorizzato' }
+  if (!options?.skipUserCheck && participant.user_id !== actingUserId) return { error: 'Accesso non autorizzato' }
 
   // 4. Verify the player exists in the Dunkest catalog
   const { data: player, error: plErr } = await supabase

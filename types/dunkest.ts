@@ -32,6 +32,7 @@ export interface GoatDraftSession {
   created_by: string
   created_at: string
   updated_at: string
+  is_demo: boolean
 }
 
 export interface GoatDraftParticipant {
