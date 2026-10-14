@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import type { GoatDraftParticipant, GoatDraftPick, GoatDraftSession, GoatDraftState } from '@/types/dunkest'
 
 // ─── Read helpers ─────────────────────────────────────────────────────────────
@@ -112,6 +112,7 @@ export async function makePick(
   actingUserId: string,
 ): Promise<MakePickResult> {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   // 1. Load session + participant under advisory lock simulation via SELECT FOR UPDATE.
   //    Supabase JS doesn't support FOR UPDATE directly, so we use optimistic concurrency
@@ -156,7 +157,7 @@ export async function makePick(
   const pickInRound = session.current_pick_index + 1
 
   // 6. Insert pick — unique constraints (session+player, session+participant+round) act as DB guard
-  const { error: insertErr } = await supabase
+  const { error: insertErr } = await adminSupabase
     .from('goat_draft_picks')
     .insert({
       session_id: sessionId,
@@ -178,7 +179,7 @@ export async function makePick(
 
   // 7. Update participant roster value
   const newRosterValue = participant.roster_value + Number(player.value)
-  await supabase
+  await adminSupabase
     .from('goat_draft_participants')
     .update({ roster_value: newRosterValue })
     .eq('id', participantId)
@@ -189,10 +190,10 @@ export async function makePick(
 
   if (isLastPickOfRound) {
     roundAdvanced = true
-    await advanceToNextRound(session, supabase)
+    await advanceToNextRound(session, adminSupabase)
   } else {
     // Just advance the pick index
-    await supabase
+    await adminSupabase
       .from('goat_draft_sessions')
       .update({
         current_pick_index: session.current_pick_index + 1,
@@ -206,10 +207,8 @@ export async function makePick(
 
 // ─── advanceToNextRound ───────────────────────────────────────────────────────
 
-async function advanceToNextRound(
-  session: GoatDraftSession,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function advanceToNextRound(session: GoatDraftSession, supabase: any) {
   // Re-fetch all participants with updated roster values
   const { data: participants } = await supabase
     .from('goat_draft_participants')
