@@ -294,38 +294,46 @@ export default function GoatDraftSessionPage({
                 />
               </div>
 
-              {/* Current turn indicator */}
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px]" style={{ color: 'var(--text-dim)' }}>Turno:</span>
-                  <span
-                    className="font-display font-black text-sm tracking-wide px-2 py-0.5 rounded"
-                    style={{
-                      background: isMyTurn ? 'rgba(212,160,23,0.15)' : 'var(--surface2)',
-                      color: isMyTurn ? 'var(--gold)' : 'var(--text)',
-                      border: `1px solid ${isMyTurn ? 'rgba(212,160,23,0.4)' : 'var(--border)'}`,
-                    }}
-                  >
-                    {currentParticipant?.display_name ?? '—'}
-                    {isMyTurn && ' (TU)'}
-                  </span>
-                </div>
-                {nextParticipant && (
-                  <div className="text-[11px]" style={{ color: 'var(--text-dim)' }}>
-                    Prossimo: <span style={{ color: 'var(--text-sec)' }}>{nextParticipant.display_name}</span>
-                  </div>
-                )}
+              {/* Turn order strip */}
+              <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+                {roundOrder.map((p, idx) => {
+                  const isCurrent = idx === session.current_pick_index
+                  const isDone = idx < session.current_pick_index
+                  const isMe = p.user_id === profile?.id
+                  return (
+                    <div
+                      key={p.id}
+                      className="shrink-0 flex flex-col items-center gap-0.5"
+                    >
+                      <div
+                        className="font-display font-black text-[11px] tracking-wide px-2.5 py-1 rounded-lg whitespace-nowrap"
+                        style={{
+                          background: isCurrent
+                            ? 'rgba(212,160,23,0.2)'
+                            : isDone
+                              ? 'rgba(74,222,128,0.08)'
+                              : 'var(--surface2)',
+                          color: isCurrent
+                            ? 'var(--gold)'
+                            : isDone
+                              ? '#4ade80'
+                              : isMe
+                                ? '#93c5fd'
+                                : 'var(--text-dim)',
+                          border: `1px solid ${isCurrent ? 'rgba(212,160,23,0.45)' : isDone ? 'rgba(74,222,128,0.2)' : 'var(--border)'}`,
+                          fontWeight: isCurrent || isMe ? 900 : 600,
+                        }}
+                      >
+                        {isDone && <span className="mr-1 text-[10px]">✓</span>}
+                        {p.display_name}
+                        {isMe && !isCurrent && <span className="ml-1 opacity-60 text-[10px]">(tu)</span>}
+                        {isCurrent && isMe && <span className="ml-1 text-[10px]"> ← TU</span>}
+                        {isCurrent && !isMe && <span className="ml-1 text-[10px] opacity-75"> ←</span>}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-
-              {/* Not my turn message */}
-              {myParticipant && !isMyTurn && (
-                <div
-                  className="rounded-lg px-3 py-2 text-xs"
-                  style={{ background: 'rgba(148,163,184,0.05)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
-                >
-                  Non è il tuo turno. Attendi che <strong style={{ color: 'var(--text-sec)' }}>{currentParticipant?.display_name}</strong> completi la selezione.
-                </div>
-              )}
             </div>
           )}
 
