@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Goat League Project',
+  title: 'Goat League Companion',
   description: 'Lista giocatori NBA 2K con filtri e salvataggio',
 }
 

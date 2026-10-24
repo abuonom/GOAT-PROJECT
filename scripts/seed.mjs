@@ -360,7 +360,7 @@ const playerAges = await page.evaluate(() => {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  log('\n🏀 GOAT LEAGUE PROJECT — Seed DB\n')
+  log('\n🏀 GOAT LEAGUE COMPANION — Seed DB\n')
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !API_KEY) {
     log('❌ Mancano variabili in .env.local (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NBA2K_API_KEY)')

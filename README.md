@@ -1,4 +1,4 @@
-# GOAT LEAGUE PROJECT
+# GOAT LEAGUE COMPANION
 
 🇮🇹 [Italiano](#italiano) · 🇬🇧 [English](#english)
 

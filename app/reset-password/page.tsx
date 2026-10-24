@@ -28,7 +28,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl font-black tracking-widest" style={{ color: 'var(--gold)' }}>GOAT LEAGUE</h1>
-          <p className="font-display text-lg font-bold tracking-wide mt-1" style={{ color: 'var(--text)' }}>PROJECT</p>
+          <p className="font-display text-lg font-bold tracking-wide mt-1" style={{ color: 'var(--text)' }}>COMPANION</p>
         </div>
 
         <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
