@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
+import TeamLogo from '@/components/TeamLogo'
 
 export const revalidate = 300
 
@@ -33,11 +34,11 @@ export default async function RosterAttualiPage() {
               <Link
                 key={team.id}
                 href={`/roster-attuali/${team.id}`}
-                className="rounded-xl p-4 text-center transition-colors"
+                className="rounded-xl p-4 flex flex-col items-center gap-3 transition-colors hover:brightness-110"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
-                <div className="font-display text-2xl font-black" style={{ color: 'var(--gold)' }}>{team.abbreviation}</div>
-                <div className="text-xs mt-1" style={{ color: 'var(--text-sec)' }}>{team.name}</div>
+                <TeamLogo team={team.name} size={72} />
+                <div className="font-display text-sm font-bold tracking-wide" style={{ color: 'var(--text)' }}>{team.abbreviation}</div>
               </Link>
             ))}
           </div>

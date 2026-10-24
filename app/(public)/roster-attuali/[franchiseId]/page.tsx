@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
+import TeamLogo from '@/components/TeamLogo'
 
 export const revalidate = 300
 
@@ -66,7 +67,10 @@ export default async function FranchiseRosterPage({
   return (
     <section className="space-y-6">
       <Link href="/roster-attuali" className="text-sm underline" style={{ color: 'var(--gold)' }}>← Tutte le franchigie</Link>
-      <h2 className="font-display text-3xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>{franchise.name}</h2>
+      <div className="flex items-center gap-4">
+        <TeamLogo team={franchise.name} size={64} />
+        <h2 className="font-display text-3xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>{franchise.name}</h2>
+      </div>
 
       {players.length === 0 ? (
         <p className="text-sm" style={{ color: 'var(--text-sec)' }}>Nessun giocatore confermato per questa franchigia.</p>
