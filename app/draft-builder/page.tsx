@@ -326,7 +326,7 @@ export default function DraftBuilderPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/players').then(r => r.json()),
+      fetch('/api/players/draft-list').then(r => r.json()),
       fetch('/api/contracts').then(r => r.json()),
     ]).then(([pd, cd]) => {
       const allPlayers: Player[] = pd.success ? pd.data : []
