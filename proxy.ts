@@ -23,8 +23,9 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const publicPaths = ['/login', '/reset-password', '/auth']
-  const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
+  const publicPaths = ['/login', '/reset-password', '/auth', '/regolamento', '/roster-attuali']
+  const isPublicPath = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
+  const isPublic = isPublicPath || request.nextUrl.pathname === '/'
 
   // Not authenticated → redirect to login
   if (!user && !isPublic) {
