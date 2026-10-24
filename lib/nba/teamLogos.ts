@@ -13,7 +13,7 @@ const TEAMS: Record<string, TeamEntry> = {
   'Golden State Warriors':  { espn: 'gsw',  abbr: 'GSW' },
   'Houston Rockets':        { espn: 'hou',  abbr: 'HOU' },
   'Indiana Pacers':         { espn: 'ind',  abbr: 'IND' },
-  'Los Angeles Clippers':   { espn: 'lac',  abbr: 'LAC' },
+  'LA Clippers':            { espn: 'lac',  abbr: 'LAC' },
   'Los Angeles Lakers':     { espn: 'lal',  abbr: 'LAL' },
   'Memphis Grizzlies':      { espn: 'mem',  abbr: 'MEM' },
   'Miami Heat':             { espn: 'mia',  abbr: 'MIA' },
