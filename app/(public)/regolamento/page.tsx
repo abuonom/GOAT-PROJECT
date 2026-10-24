@@ -18,7 +18,7 @@ const sections: Section[] = [
     intro: 'Varietà offensiva, ritmo e gestione del possesso.',
     rules: [
       { title: 'Variare le soluzioni', text: 'Diversificare schemi e soluzioni offensive: evitare di ripetere soltanto uno o due schemi per tutta la partita.' },
-      { title: 'Lancio lungo dopo canestro subito', text: 'Vietato costruire dalla propria metà campo e attendere che la difesa si sistemi. Eccezioni: ultimo possesso di un quarto o svantaggio negli ultimi 2 minuti.' },
+      { title: 'Lancio lungo dopo canestro subito', text: 'Non si può fare lancio lungo subito dopo canestro: bisogna aspettare che la difesa si riposizioni. Se la difesa viene a pressare alto, si può attaccare direttamente. Eccezione: ultimo possesso di un quarto o svantaggio negli ultimi 2 minuti.' },
       { title: 'Pressione avversaria', text: 'Lancio lungo consentito contro pressione di squadra. R2 consentito contro pressione di un singolo difensore che non rientra nell’arco dei 3 punti.' },
       { title: 'Limite tiri', text: 'Massimo 45 tentativi per giocatore in una partita; 55 in caso di overtime.' },
     ],
@@ -40,10 +40,10 @@ const sections: Section[] = [
     intro: 'Dal primo accordo alla validazione ufficiale.',
     rules: [
       { title: 'No check, no trade', text: 'Per effettuare una trade bisogna essere in regola con il check delle partite.' },
-      { title: '01 Accordo', text: 'I due GM concordano informalmente lo scambio: non è ancora ufficiale.' },
-      { title: '02 Invio agli admin', text: 'Dopo l’accettazione in game da entrambe le parti, la trade va inviata all’admin. Durante la valutazione i giocatori coinvolti non possono entrare in altre trade.' },
-      { title: '03 Approvazione', text: 'Con il consenso di tre admin, la trade viene implementata in game.' },
+      { title: 'Procedura ufficiale', text: 'I due GM concordano informalmente lo scambio: non è ancora ufficiale. Dopo l’accettazione in game da entrambe le parti, la trade va inviata all’admin; durante la valutazione i giocatori coinvolti non possono entrare in altre trade. Con il consenso di tre admin, la trade viene implementata in game.' },
       { title: 'Penalità', text: 'Se una trade ufficiale già inviata agli admin non viene rispettata, è previsto il blocco del mercato per il giocatore responsabile.' },
+      { title: 'Giocatori firmati con la CNS: prima stagione', text: 'Per l’intera prima stagione dopo la firma non potranno essere scambiati. (Valido se non già gestito dal gioco stesso.)' },
+      { title: 'Giocatori firmati con la CNS: dalla seconda stagione', text: 'Potranno essere scambiati solamente a una squadra che ha fatto almeno semifinale di conference la stagione precedente (8 squadre possibili ogni stagione), oppure che ha vinto coppa e/o anello in questa edizione di 2K. (Valido se non già gestito dal gioco stesso.)' },
     ],
   },
   {
