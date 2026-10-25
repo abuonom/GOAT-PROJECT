@@ -2,39 +2,28 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Player, Badge } from '@/types/nba'
 import type { GmShopAttribute } from '@/types/league'
-import { calculateUpgradeCost, checkUpgradeEligibility, GM_SHOP_RULES } from '@/lib/gm-shop/rules'
+import { calculateUpgradeCost, GM_SHOP_RULES } from '@/lib/gm-shop/rules'
 
-interface ShopUpgrade {
-  player_slug: string
-  attribute_key: string
-  old_value: number | null
-  new_value: number | null
-  gc_cost: number
-  created_at: string
-}
-
-interface RosterPlayer {
+interface RosterEntry {
   slug: string
-  name: string | null
-  overall: number | null
+  origin: 'list' | 'manual'
+  name: string
+  overall: number
+  positions: string[]
+  isRookie: boolean
+  upgradeCount: number
+  upgrades: { attribute_key: string; old_value: number | null; new_value: number | null; gc_cost: number }[]
 }
 
-interface ShopContext {
+interface RosterResponse {
+  roster: RosterEntry[]
   balance: number
-  seasonId: string
-  seasonName: string
-  franchise: { name: string; abbreviation: string } | null
-  rosterSlugs: string[]
-  rosterPlayers: RosterPlayer[]
-  upgrades: ShopUpgrade[]
 }
 
-type ViewTab = 'shop' | 'history'
-type AttrCategory = 'Tiro' | 'Finishing' | 'Playmaking' | 'Difesa' | 'Atletismo' | 'Badge'
+type Step = 'player' | 'attribute' | 'values' | 'confirm'
 
-const CATEGORIES: AttrCategory[] = ['Tiro', 'Finishing', 'Playmaking', 'Difesa', 'Atletismo', 'Badge']
+const CATEGORIES = ['Tiro', 'Finishing', 'Playmaking', 'Difesa', 'Atletismo', 'Badge'] as const
 
 function ovrColor(v: number) {
   if (v >= 95) return '#fde047'
@@ -44,35 +33,20 @@ function ovrColor(v: number) {
   return 'var(--text-sec)'
 }
 
-function surchargeLabel(v: number): string {
-  if (v >= 94) return '+8 GC sovrapprice'
-  if (v >= 91) return '+6 GC sovrapprice'
-  if (v >= 88) return '+4 GC sovrapprice'
-  if (v >= 85) return '+2 GC sovrapprice'
-  return ''
-}
-
 export default function GmShopClient() {
   const router = useRouter()
 
-  const [context, setContext] = useState<ShopContext | null>(null)
+  const [roster, setRoster] = useState<RosterResponse | null>(null)
   const [catalog, setCatalog] = useState<GmShopAttribute[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
-  const [playerData, setPlayerData] = useState<Record<string, Player>>({})
-  const [playerLoading, setPlayerLoading] = useState(false)
-
-  const [viewTab, setViewTab] = useState<ViewTab>('shop')
-  const [attrTab, setAttrTab] = useState<AttrCategory>('Tiro')
-  const [confirmUpgrade, setConfirmUpgrade] = useState<{
-    attributeKey: string
-    label: string
-    currentValue: number | null
-    cost: number
-    badgeName?: string
-  } | null>(null)
-  const [purchasing, setPurchasing] = useState(false)
+  const [step, setStep] = useState<Step>('player')
+  const [selected, setSelected] = useState<RosterEntry | null>(null)
+  const [attr, setAttr] = useState<GmShopAttribute | null>(null)
+  const [fromValue, setFromValue] = useState<number>(70)
+  const [toValue, setToValue] = useState<number>(71)
+  const [attrTab, setAttrTab] = useState<(typeof CATEGORIES)[number]>('Tiro')
+  const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
   const showToast = useCallback((msg: string, ok = true) => {
@@ -80,646 +54,314 @@ export default function GmShopClient() {
     setTimeout(() => setToast(null), 4000)
   }, [])
 
-  const loadContext = useCallback(async () => {
-    const [ctxRes, catRes] = await Promise.all([
-      fetch('/api/gm-shop?type=context'),
-      fetch('/api/gm-shop?type=catalog'),
-    ])
-    if (ctxRes.ok) setContext(await ctxRes.json())
-    if (catRes.ok) setCatalog((await catRes.json()).attributes ?? [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { loadContext() }, [loadContext])
+  const loadRoster = useCallback(async () => {
+    const res = await fetch('/api/gm-roster')
+    if (res.status === 401) { router.push('/login'); return }
+    setRoster(await res.json())
+  }, [router])
 
   useEffect(() => {
-    if (!selectedSlug || playerData[selectedSlug]) return
-    setPlayerLoading(true)
-    fetch(`/api/players/${selectedSlug}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(json => {
-        if (json?.data) setPlayerData(prev => ({ ...prev, [selectedSlug]: json.data }))
-        setPlayerLoading(false)
-      })
-  }, [selectedSlug, playerData])
+    Promise.all([
+      loadRoster(),
+      fetch('/api/gm-shop?type=catalog').then(r => r.json()),
+    ]).then(([, cat]) => {
+      setCatalog(cat.attributes ?? [])
+    }).finally(() => setLoading(false))
+  }, [loadRoster])
 
-  const selectedPlayer = selectedSlug ? playerData[selectedSlug] : null
-  const upgradesForSelected = useMemo(() =>
-    context?.upgrades.filter(u => u.player_slug === selectedSlug) ?? [],
-    [context, selectedSlug]
+  // Anteprima costo: solo per l'interfaccia. Il valore definitivo arriva dal server.
+  const previewCost = useMemo(() => {
+    if (!attr) return null
+    if (attr.is_badge_upgrade) return attr.base_cost
+    return calculateUpgradeCost(attr.base_cost, fromValue, false)
+  }, [attr, fromValue])
+
+  const remaining = useMemo(
+    () => (selected ? GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON - selected.upgradeCount : 0),
+    [selected]
   )
-  const upgradeCount = upgradesForSelected.length
-  const upgradedKeys = useMemo(() =>
-    new Set(upgradesForSelected.map(u => u.attribute_key)),
-    [upgradesForSelected]
+
+  const alreadyUpgraded = useMemo(
+    () => new Set((selected?.upgrades ?? []).map(u => u.attribute_key)),
+    [selected]
   )
-  const catalogByCategory = useMemo(() =>
-    catalog.filter(a => a.category === attrTab),
+
+  const visibleAttrs = useMemo(
+    () => catalog.filter(a => a.category === attrTab),
     [catalog, attrTab]
   )
-  const bronzeBadges: Badge[] = useMemo(() => {
-    if (!selectedPlayer?.badges?.list) return []
-    return selectedPlayer.badges.list.filter(b => b.tier === 'Bronze')
-  }, [selectedPlayer])
 
-  async function handlePurchase() {
-    if (!confirmUpgrade || !selectedSlug || !context) return
-    setPurchasing(true)
-    const res = await fetch('/api/gm-shop', {
+  function pickPlayer(entry: RosterEntry) {
+    setSelected(entry)
+    setAttr(null)
+    setStep('attribute')
+  }
+
+  function pickAttribute(a: GmShopAttribute) {
+    setAttr(a)
+    if (a.is_badge_upgrade) {
+      setStep('confirm')
+      return
+    }
+    setFromValue(70)
+    setToValue(71)
+    setStep('values')
+  }
+
+  function changeFrom(v: number) {
+    const from = Math.max(0, Math.min(98, v))
+    setFromValue(from)
+    setToValue(from + 1)
+  }
+
+  async function submit() {
+    if (!selected || !attr) return
+    setSubmitting(true)
+    const body = attr.is_badge_upgrade
+      ? { action: 'upgrade', playerSlug: selected.slug, attributeKey: attr.attribute_key, fromValue: 0, toValue: 1 }
+      : { action: 'upgrade', playerSlug: selected.slug, attributeKey: attr.attribute_key, fromValue, toValue: fromValue + 1 }
+
+    const res = await fetch('/api/gm-roster', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json()
+    setSubmitting(false)
+
+    if (!res.ok) {
+      showToast(json.error ?? 'Errore', false)
+      return
+    }
+    showToast(`Upgrade confermato: −${json.gcCost} GC`)
+    await loadRoster()
+    setStep('player')
+    setSelected(null)
+    setAttr(null)
+  }
+
+  function reset() {
+    setStep('player')
+    setSelected(null)
+    setAttr(null)
+  }
+
+  if (loading || !roster) {
+    return <div className="min-h-screen flex items-center justify-center" style={{ color: 'var(--text-sec)' }}>Caricamento…</div>
+  }
+
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      <header className="sticky top-0 z-10 border-b px-4 py-3 flex items-center justify-between" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <button onClick={() => router.push('/dashboard')} className="text-sm" style={{ color: 'var(--text-sec)' }}>← Dashboard</button>
+        <h1 className="font-display text-xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>GM SHOP</h1>
+        <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <Steps current={step} />
+
+        {toast && (
+          <div className="rounded-lg px-4 py-3 text-sm" style={{
+            background: toast.ok ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+            border: `1px solid ${toast.ok ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            color: toast.ok ? '#4ade80' : '#f87171',
+          }}>{toast.msg}</div>
+        )}
+
+        {step === 'player' && (
+          <section className="space-y-3">
+            <h2 className="font-display text-lg font-bold tracking-wide">1. Scegli il giocatore</h2>
+            {roster.roster.length === 0 && (
+              <p className="text-sm" style={{ color: 'var(--text-sec)' }}>Il tuo roster è vuoto. Aggiungi giocatori dalla lista o inseriscine uno nuovo.</p>
+            )}
+            {roster.roster.map(p => (
+              <button
+                key={p.slug}
+                onClick={() => pickPlayer(p)}
+                className="w-full rounded-xl p-4 flex items-center gap-4 text-left"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <span className="font-display text-2xl font-black w-12" style={{ color: ovrColor(p.overall) }}>{p.overall}</span>
+                <span className="flex-1">
+                  <span className="block font-semibold">{p.name}{p.isRookie && <span className="ml-2 text-[10px] tracking-wider" style={{ color: 'var(--gold)' }}>ROOKIE</span>}</span>
+                  <span className="block text-xs" style={{ color: 'var(--text-sec)' }}>{p.positions.join(' / ')}</span>
+                </span>
+                <span className="text-xs" style={{ color: 'var(--text-sec)' }}>{p.upgradeCount}/{GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON}</span>
+              </button>
+            ))}
+            <AddPlayerForm onAdded={async () => { await loadRoster(); showToast('Giocatore aggiunto') }} onError={msg => showToast(msg, false)} />
+          </section>
+        )}
+
+        {step === 'attribute' && selected && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold tracking-wide">2. Scegli l'attributo</h2>
+              <button onClick={reset} className="text-xs underline" style={{ color: 'var(--text-sec)' }}>Cambia giocatore</button>
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-sec)' }}>
+              {selected.name} · upgrade rimanenti: {remaining}
+            </p>
+
+            <div className="flex gap-2 overflow-x-auto">
+              {CATEGORIES.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setAttrTab(c)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
+                  style={{
+                    background: attrTab === c ? 'var(--gold)' : 'var(--surface)',
+                    color: attrTab === c ? '#000' : 'var(--text-sec)',
+                    border: '1px solid var(--border)',
+                  }}
+                >{c}</button>
+              ))}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {visibleAttrs.map(a => {
+                const done = alreadyUpgraded.has(a.attribute_key)
+                const disabled = done || remaining <= 0
+                return (
+                  <button
+                    key={a.attribute_key}
+                    disabled={disabled}
+                    onClick={() => pickAttribute(a)}
+                    className="rounded-lg p-3 text-left flex justify-between items-center disabled:opacity-40"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  >
+                    <span className="text-sm">{a.label_it}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>
+                      {done ? 'GIÀ FATTO' : `base ${a.base_cost} GC`}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {step === 'values' && selected && attr && (
+          <section className="space-y-6">
+            <h2 className="font-display text-lg font-bold tracking-wide">3. Valore attuale e valore finale</h2>
+            <p className="text-sm" style={{ color: 'var(--text-sec)' }}>
+              {selected.name} · {attr.label_it}. Dichiara il valore attuale nel gioco: l'upgrade è sempre +1.
+            </p>
+
+            <div className="rounded-xl p-5 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <label className="block text-sm">
+                Valore attuale
+                <input
+                  type="number"
+                  min={0}
+                  max={98}
+                  value={fromValue}
+                  onChange={e => changeFrom(Number(e.target.value))}
+                  className="mt-1 w-full rounded-lg px-3 py-2"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </label>
+              <div className="text-sm" style={{ color: 'var(--text-sec)' }}>Valore finale: <span className="font-bold" style={{ color: 'var(--text)' }}>{toValue}</span></div>
+              <div className="text-sm">Costo stimato: <span className="font-bold" style={{ color: 'var(--gold)' }}>{previewCost} GC</span></div>
+              <p className="text-[11px]" style={{ color: 'var(--text-dim)' }}>Anteprima. Il costo definitivo lo calcola il server al momento della conferma.</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep('attribute')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
+              <button onClick={() => setStep('confirm')} className="flex-1 rounded-lg py-2 text-sm font-bold" style={{ background: 'var(--gold)', color: '#000' }}>Continua</button>
+            </div>
+          </section>
+        )}
+
+        {step === 'confirm' && selected && attr && (
+          <section className="space-y-6">
+            <h2 className="font-display text-lg font-bold tracking-wide">4. Conferma</h2>
+            <div className="rounded-xl p-5 space-y-2 text-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <div>Giocatore: <span className="font-semibold">{selected.name}</span></div>
+              <div>Attributo: <span className="font-semibold">{attr.label_it}</span></div>
+              {!attr.is_badge_upgrade && <div>Da {fromValue} a {fromValue + 1}</div>}
+              <div>Costo: <span className="font-bold" style={{ color: 'var(--gold)' }}>{previewCost} GC</span></div>
+              <div style={{ color: 'var(--text-sec)' }}>Saldo dopo: {roster.balance - (previewCost ?? 0)} GC</div>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-sec)' }}>
+              L'upgrade viene validato dall'admin in game. Dichiarare un valore non corretto comporta penalità.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setStep(attr.is_badge_upgrade ? 'attribute' : 'values')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
+              <button
+                onClick={submit}
+                disabled={submitting}
+                className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50"
+                style={{ background: 'var(--gold)', color: '#000' }}
+              >{submitting ? 'Invio…' : 'Conferma upgrade'}</button>
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  )
+}
+
+function Steps({ current }: { current: Step }) {
+  const order: Step[] = ['player', 'attribute', 'values', 'confirm']
+  const idx = order.indexOf(current)
+  return (
+    <div className="flex gap-2">
+      {order.map((s, i) => (
+        <span key={s} className="flex-1 h-1 rounded" style={{ background: i <= idx ? 'var(--gold)' : 'var(--border)' }} />
+      ))}
+    </div>
+  )
+}
+
+function AddPlayerForm({ onAdded, onError }: { onAdded: () => void; onError: (m: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [overall, setOverall] = useState('')
+  const [positions, setPositions] = useState('')
+  const [isRookie, setIsRookie] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function submit() {
+    setBusy(true)
+    const res = await fetch('/api/gm-roster', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        playerSlug: selectedSlug,
-        attributeKey: confirmUpgrade.attributeKey,
-        currentValue: confirmUpgrade.currentValue,
-        badgeName: confirmUpgrade.badgeName,
+        action: 'add-manual',
+        name,
+        overall: Number(overall),
+        positions: positions.split(',').map(s => s.trim()).filter(Boolean),
+        isRookie,
       }),
     })
     const json = await res.json()
-    setPurchasing(false)
-    setConfirmUpgrade(null)
-    if (json.error) { showToast(json.error, false); return }
-    showToast(`Upgrade acquistato! −${json.gcCost} GC`)
-    await loadContext()
+    setBusy(false)
+    if (!res.ok) { onError(json.error ?? 'Errore'); return }
+    setName(''); setOverall(''); setPositions(''); setIsRookie(false); setOpen(false)
+    onAdded()
   }
 
-  // ─── Loading / empty states ───
-
-  if (loading) {
+  if (!open) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-        <div className="px-4 py-10 space-y-3 max-w-2xl mx-auto">
-          {[64, 48, 300].map(h => (
-            <div key={h} className="rounded-xl animate-pulse" style={{ height: h, background: 'var(--surface)' }} />
-          ))}
-        </div>
-      </div>
+      <button onClick={() => setOpen(true)} className="w-full rounded-xl py-3 text-sm" style={{ border: '1px dashed var(--border2)', color: 'var(--text-sec)' }}>
+        + Aggiungi giocatore non in lista (es. rookie del gioco)
+      </button>
     )
   }
 
-  if (!context) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)' }} className="flex items-center justify-center">
-        <p className="font-display font-black" style={{ color: 'var(--text-dim)' }}>Nessuna stagione attiva</p>
-      </div>
-    )
-  }
-
-  // ─── Render ───
-
+  const inputStyle = { background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-40" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-        <div className="px-4 py-3 flex items-center gap-3 max-w-4xl mx-auto">
-          {/* Left: back / breadcrumb */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {selectedSlug && viewTab === 'shop' ? (
-              <button
-                onClick={() => setSelectedSlug(null)}
-                className="text-xs font-semibold px-3 py-1.5 rounded shrink-0"
-                style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
-              >
-                ← Giocatori
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="text-xs font-semibold px-3 py-1.5 rounded shrink-0"
-                style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
-              >
-                ← Dashboard
-              </button>
-            )}
-            <span className="font-display text-base font-black tracking-wider truncate" style={{ color: 'var(--gold)' }}>
-              GM SHOP
-            </span>
-            <span className="text-xs shrink-0" style={{ color: 'var(--text-dim)' }}>{context.seasonName}</span>
-          </div>
-
-          {/* Right: balance */}
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="font-display text-xl font-black" style={{ color: 'var(--gold)' }}>{context.balance}</span>
-            <span className="text-xs" style={{ color: 'var(--text-dim)' }}>GC</span>
-          </div>
-        </div>
-
-        {/* Tab bar */}
-        <div className="flex max-w-4xl mx-auto" style={{ borderTop: '1px solid var(--border2)' }}>
-          {(['shop', 'history'] as ViewTab[]).map(t => (
-            <button key={t} onClick={() => { setViewTab(t); if (t === 'shop') {} }}
-              className="flex-1 text-xs font-bold py-2.5 font-display tracking-wide"
-              style={{
-                color: viewTab === t ? 'var(--gold)' : 'var(--text-dim)',
-                borderBottom: viewTab === t ? '2px solid var(--gold)' : '2px solid transparent',
-                marginBottom: '-1px',
-              }}
-            >
-              {t === 'shop' ? 'SHOP' : 'STORICO'}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {/* ── SHOP VIEW ── */}
-      {viewTab === 'shop' && (
-        <div className="max-w-4xl mx-auto lg:flex lg:items-start">
-
-          {/* PLAYER LIST — hidden on mobile when player selected */}
-          <div className={`lg:w-64 lg:shrink-0 lg:border-r ${selectedSlug ? 'hidden lg:block' : 'block'}`}
-            style={{ borderColor: 'var(--border)' }}>
-            <div className="px-4 pt-5 pb-2">
-              <h3 className="font-display font-black tracking-wide text-xs" style={{ color: 'var(--text-sec)' }}>
-                SCEGLI GIOCATORE
-              </h3>
-            </div>
-
-            {context.rosterSlugs.length === 0 ? (
-              <div className="mx-4 rounded-xl p-4 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Nessun giocatore nel roster</p>
-                <button onClick={() => router.push('/roster')} className="mt-2 text-xs underline" style={{ color: 'var(--gold)' }}>
-                  Vai al roster →
-                </button>
-              </div>
-            ) : (
-              <div className="px-4 pb-5 space-y-1.5 lg:space-y-1">
-                {(context.rosterPlayers ?? context.rosterSlugs.map(s => ({ slug: s, name: null, overall: null }))).map(rp => {
-                  const slug = rp.slug
-                  const p = playerData[slug]
-                  const displayName = p?.name ?? rp.name
-                  const displayOvr = p?.overall ?? rp.overall
-                  const upgCount = context.upgrades.filter(u => u.player_slug === slug).length
-                  const isSelected = selectedSlug === slug
-                  return (
-                    <button
-                      key={slug}
-                      onClick={() => { setSelectedSlug(slug); setAttrTab('Tiro') }}
-                      className="w-full text-left px-3 py-3 rounded-xl transition-all"
-                      style={{
-                        background: isSelected ? 'var(--gold-bg)' : 'var(--surface)',
-                        border: isSelected ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
-                      }}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        {displayOvr != null && (
-                          <span className="font-display font-black text-lg w-9 text-center shrink-0"
-                            style={{ color: ovrColor(displayOvr) }}>
-                            {displayOvr}
-                          </span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold truncate" style={{ color: isSelected ? 'var(--gold)' : 'var(--text)' }}>
-                            {displayName ?? slug.replace(/-/g, ' ')}
-                          </div>
-                          {upgCount > 0 && (
-                            <div className="text-[10px] mt-0.5" style={{ color: upgCount >= 3 ? '#f87171' : '#60a5fa' }}>
-                              {upgCount}/3 upgrade
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-lg shrink-0" style={{ color: 'var(--text-dim)' }}>›</span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* UPGRADE PANEL — right column on desktop, full screen on mobile */}
-          <div className={`flex-1 min-w-0 ${selectedSlug ? 'block' : 'hidden lg:block'}`}>
-            {selectedSlug ? (
-              <UpgradePanel
-                selectedSlug={selectedSlug}
-                selectedPlayer={selectedPlayer}
-                playerLoading={playerLoading}
-                upgradeCount={upgradeCount}
-                upgradedKeys={upgradedKeys}
-                attrTab={attrTab}
-                setAttrTab={setAttrTab}
-                catalogByCategory={catalogByCategory}
-                bronzeBadges={bronzeBadges}
-                balance={context.balance}
-                onConfirm={setConfirmUpgrade}
-              />
-            ) : (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="text-4xl mb-3">🛒</div>
-                  <p className="font-display font-black tracking-wide" style={{ color: 'var(--text-sec)' }}>
-                    SELEZIONA UN GIOCATORE
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>
-                    Scegli un giocatore dalla lista per vedere gli upgrade disponibili.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── HISTORY VIEW ── */}
-      {viewTab === 'history' && (
-        <div className="max-w-4xl mx-auto px-4 py-5">
-          <HistoryView upgrades={context.upgrades} catalog={catalog} playerData={playerData} />
-        </div>
-      )}
-
-      {/* ── Confirm dialog ── */}
-      {confirmUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)' }}
-          onClick={e => { if (e.target === e.currentTarget) setConfirmUpgrade(null) }}>
-          <div className="w-full max-w-sm rounded-2xl p-6 space-y-4"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div>
-              <h2 className="font-display text-xl font-black tracking-wider mb-2" style={{ color: 'var(--text)' }}>
-                CONFERMA UPGRADE
-              </h2>
-              <div className="rounded-xl px-4 py-3 space-y-1"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                <div className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{confirmUpgrade.label}</div>
-                {selectedPlayer && (
-                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{selectedPlayer.name}</div>
-                )}
-                {confirmUpgrade.currentValue !== null && (
-                  <div className="font-display font-black text-sm flex items-center gap-2 mt-1">
-                    <span style={{ color: ovrColor(confirmUpgrade.currentValue) }}>{confirmUpgrade.currentValue}</span>
-                    <span style={{ color: 'var(--text-dim)' }}>→</span>
-                    <span style={{ color: ovrColor(confirmUpgrade.currentValue + 1) }}>{confirmUpgrade.currentValue + 1}</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center justify-between mt-3 px-1">
-                <span className="text-sm" style={{ color: 'var(--text-sec)' }}>Costo:</span>
-                <span className="font-display text-2xl font-black" style={{ color: 'var(--gold)' }}>{confirmUpgrade.cost} GC</span>
-              </div>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Saldo dopo:</span>
-                <span className="text-sm font-black font-display"
-                  style={{ color: context.balance - confirmUpgrade.cost >= 0 ? '#4ade80' : '#f87171' }}>
-                  {context.balance - confirmUpgrade.cost} GC
-                </span>
-              </div>
-            </div>
-            <p className="text-xs" style={{ color: '#fb923c' }}>
-              ⚠️ L'upgrade è permanente e non reversibile.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmUpgrade(null)}
-                className="flex-1 font-semibold text-sm py-3 rounded-xl"
-                style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
-                Annulla
-              </button>
-              <button onClick={handlePurchase} disabled={purchasing}
-                className="flex-1 font-display font-black tracking-wide text-sm py-3 rounded-xl"
-                style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.4)', opacity: purchasing ? 0.6 : 1 }}>
-                {purchasing ? '...' : `ACQUISTA −${confirmUpgrade.cost} GC`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-sm font-semibold shadow-xl whitespace-nowrap"
-          style={{
-            background: toast.ok ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-            color: toast.ok ? '#4ade80' : '#f87171',
-            border: `1px solid ${toast.ok ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}`,
-          }}>
-          {toast.msg}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Upgrade Panel ─────────────────────────────────────────────────────────────
-
-function UpgradePanel({
-  selectedSlug, selectedPlayer, playerLoading,
-  upgradeCount, upgradedKeys,
-  attrTab, setAttrTab, catalogByCategory, bronzeBadges,
-  balance, onConfirm,
-}: {
-  selectedSlug: string
-  selectedPlayer: Player | null
-  playerLoading: boolean
-  upgradeCount: number
-  upgradedKeys: Set<string>
-  attrTab: AttrCategory
-  setAttrTab: (c: AttrCategory) => void
-  catalogByCategory: GmShopAttribute[]
-  bronzeBadges: Badge[]
-  balance: number
-  onConfirm: (u: { attributeKey: string; label: string; currentValue: number | null; cost: number; badgeName?: string }) => void
-}) {
-  if (playerLoading) {
-    return (
-      <div className="px-4 py-8 text-center">
-        <div className="text-sm" style={{ color: 'var(--text-dim)' }}>Caricamento...</div>
+    <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <input placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+      <input placeholder="Overall (40–99)" type="number" value={overall} onChange={e => setOverall(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+      <input placeholder="Posizioni (es. PG, SG)" value={positions} onChange={e => setPositions(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isRookie} onChange={e => setIsRookie(e.target.checked)} /> È un rookie</label>
+      <div className="flex gap-3">
+        <button onClick={() => setOpen(false)} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Annulla</button>
+        <button onClick={submit} disabled={busy || !name || !overall} className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#000' }}>Aggiungi</button>
       </div>
-    )
-  }
-
-  if (!selectedPlayer) {
-    return (
-      <div className="px-4 py-8 text-center rounded-xl mx-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Dati giocatore non disponibili</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="px-4 py-4 space-y-4">
-      {/* Player header card */}
-      <div className="rounded-xl px-4 py-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="font-display text-xl font-black leading-tight" style={{ color: 'var(--text)' }}>
-              {selectedPlayer.name}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {selectedPlayer.positions.map(pos => (
-                <span key={pos} className="text-[10px] font-black px-1.5 py-0.5 rounded tracking-wide"
-                  style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
-                  {pos}
-                </span>
-              ))}
-              <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{selectedPlayer.team}</span>
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="font-display text-3xl font-black" style={{ color: ovrColor(selectedPlayer.overall) }}>
-              {selectedPlayer.overall}
-            </div>
-            <div className="text-xs font-black font-display mt-0.5"
-              style={{ color: upgradeCount >= 3 ? '#f87171' : upgradeCount > 0 ? '#fb923c' : 'var(--text-dim)' }}>
-              {upgradeCount}/{GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON} UPG
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Category tabs — scrollable */}
-      <div className="overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-        <div className="flex gap-0 min-w-max" style={{ borderBottom: '1px solid var(--border)' }}>
-          {CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setAttrTab(cat)}
-              className="text-[11px] font-bold px-3 py-2.5 font-display tracking-wide whitespace-nowrap transition-colors"
-              style={{
-                color: attrTab === cat ? 'var(--gold)' : 'var(--text-dim)',
-                borderBottom: attrTab === cat ? '2px solid var(--gold)' : '2px solid transparent',
-                marginBottom: '-1px',
-              }}
-            >
-              {cat.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Attributes or badges */}
-      {attrTab !== 'Badge' ? (
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          {catalogByCategory.length === 0 ? (
-            <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-              Nessun attributo in questa categoria
-            </div>
-          ) : catalogByCategory.map((attr, i) => {
-            const currentVal = selectedPlayer.attributes[attr.attribute_key] ?? null
-            const alreadyDone = upgradedKeys.has(attr.attribute_key)
-            const eli = checkUpgradeEligibility({
-              baseCost: attr.base_cost,
-              currentValue: currentVal,
-              isBadgeUpgrade: false,
-              gcBalance: balance,
-              upgradeCountForPlayer: upgradeCount,
-              alreadyUpgradedThisSeason: alreadyDone,
-              playerInRoster: true,
-            })
-            const surcharge = currentVal !== null ? surchargeLabel(currentVal) : ''
-
-            return (
-              <div key={attr.attribute_key}
-                className="flex items-center gap-2 px-3 py-3"
-                style={{
-                  background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
-                  borderBottom: i < catalogByCategory.length - 1 ? '1px solid var(--border)' : 'none',
-                  opacity: alreadyDone ? 0.65 : 1,
-                }}>
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{attr.label_it}</div>
-                  {surcharge && !alreadyDone && (
-                    <div className="text-[10px]" style={{ color: '#fb923c' }}>{surcharge}</div>
-                  )}
-                  {alreadyDone && (
-                    <div className="text-[10px]" style={{ color: '#4ade80' }}>✓ Già potenziato</div>
-                  )}
-                </div>
-
-                {/* Value arrow */}
-                {currentVal !== null && (
-                  <div className="font-display font-black text-sm flex items-center gap-1 shrink-0">
-                    <span style={{ color: ovrColor(currentVal) }}>{currentVal}</span>
-                    {eli.canUpgrade && <>
-                      <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>→</span>
-                      <span style={{ color: ovrColor(currentVal + 1) }}>{currentVal + 1}</span>
-                    </>}
-                  </div>
-                )}
-
-                {/* Cost + button */}
-                <div className="shrink-0 flex flex-col items-end gap-0.5">
-                  <div className="text-xs font-black font-display" style={{ color: 'var(--gold)' }}>{eli.cost} GC</div>
-                  <button
-                    disabled={!eli.canUpgrade}
-                    onClick={() => onConfirm({
-                      attributeKey: attr.attribute_key,
-                      label: attr.label_it,
-                      currentValue: currentVal,
-                      cost: eli.cost,
-                    })}
-                    className="text-[11px] font-black px-3 py-1.5 rounded-lg font-display tracking-wide"
-                    style={{
-                      background: eli.canUpgrade ? 'rgba(74,222,128,0.15)' : 'var(--surface2)',
-                      color: eli.canUpgrade ? '#4ade80' : 'var(--text-dim)',
-                      border: `1px solid ${eli.canUpgrade ? 'rgba(74,222,128,0.35)' : 'var(--border)'}`,
-                      cursor: eli.canUpgrade ? 'pointer' : 'default',
-                      minWidth: 64,
-                    }}
-                    title={eli.blockMessage}
-                  >
-                    {alreadyDone ? '✓' : eli.canUpgrade ? 'UPGRADE' : '—'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <BadgePanel
-          bronzeBadges={bronzeBadges}
-          badgeAlreadyUsed={upgradedKeys.has('badge_bronze_silver')}
-          upgradeCount={upgradeCount}
-          balance={balance}
-          onUpgrade={(badge) => onConfirm({
-            attributeKey: 'badge_bronze_silver',
-            label: `Badge: ${badge.name}`,
-            currentValue: null,
-            cost: 10,
-            badgeName: badge.name,
-          })}
-        />
-      )}
-    </div>
-  )
-}
-
-// ─── Badge Panel ─────────────────────────────────────────────────────────────
-
-function BadgePanel({
-  bronzeBadges, badgeAlreadyUsed, upgradeCount, balance, onUpgrade,
-}: {
-  bronzeBadges: Badge[]
-  badgeAlreadyUsed: boolean
-  upgradeCount: number
-  balance: number
-  onUpgrade: (badge: Badge) => void
-}) {
-  const slotAvailable = upgradeCount < GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON
-  const canAfford = balance >= 10
-
-  if (bronzeBadges.length === 0) {
-    return (
-      <div className="rounded-xl px-5 py-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <p className="font-display font-black text-sm" style={{ color: 'var(--text-sec)' }}>NESSUN BADGE BRONZO</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Questo giocatore non ha badge Bronze da potenziare.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2">
-      {badgeAlreadyUsed && (
-        <div className="rounded-xl px-4 py-3 flex items-center gap-2"
-          style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.25)' }}>
-          <span>✅</span>
-          <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>Badge upgrade già usato questa stagione</p>
-        </div>
-      )}
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-        {bronzeBadges.map((badge, i) => {
-          const canUpgrade = !badgeAlreadyUsed && slotAvailable && canAfford
-          return (
-            <div key={badge.name}
-              className="flex items-center gap-2 px-3 py-3"
-              style={{
-                background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
-                borderBottom: i < bronzeBadges.length - 1 ? '1px solid var(--border)' : 'none',
-              }}>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{badge.name}</div>
-                <div className="text-[10px] flex items-center gap-1 mt-0.5">
-                  <span className="font-black px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(205,127,50,0.15)', color: '#cd7f32', border: '1px solid rgba(205,127,50,0.3)' }}>
-                    BRONZE
-                  </span>
-                  <span style={{ color: 'var(--text-dim)' }}>→</span>
-                  <span className="font-black px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(192,192,192,0.15)', color: '#c0c0c0', border: '1px solid rgba(192,192,192,0.3)' }}>
-                    SILVER
-                  </span>
-                </div>
-              </div>
-              <div className="shrink-0 flex flex-col items-end gap-0.5">
-                <div className="text-xs font-black font-display" style={{ color: 'var(--gold)' }}>10 GC</div>
-                <button
-                  disabled={!canUpgrade}
-                  onClick={() => canUpgrade && onUpgrade(badge)}
-                  className="text-[11px] font-black px-3 py-1.5 rounded-lg font-display tracking-wide"
-                  style={{
-                    background: canUpgrade ? 'rgba(74,222,128,0.15)' : 'var(--surface2)',
-                    color: canUpgrade ? '#4ade80' : 'var(--text-dim)',
-                    border: `1px solid ${canUpgrade ? 'rgba(74,222,128,0.35)' : 'var(--border)'}`,
-                    cursor: canUpgrade ? 'pointer' : 'default',
-                    minWidth: 64,
-                  }}
-                >
-                  {badgeAlreadyUsed ? '✓' : canUpgrade ? 'UPGRADE' : '—'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <p className="text-[10px] px-1" style={{ color: 'var(--text-dim)' }}>
-        1 badge upgrade per giocatore per stagione (conta come 1 dei 3 upgrade totali).
-      </p>
-    </div>
-  )
-}
-
-// ─── History View ─────────────────────────────────────────────────────────────
-
-function HistoryView({ upgrades, catalog, playerData }: {
-  upgrades: ShopUpgrade[]
-  catalog: GmShopAttribute[]
-  playerData: Record<string, Player>
-}) {
-  const catalogMap = useMemo(() => {
-    const m: Record<string, GmShopAttribute> = {}
-    catalog.forEach(a => { m[a.attribute_key] = a })
-    return m
-  }, [catalog])
-
-  if (upgrades.length === 0) {
-    return (
-      <div className="rounded-xl py-16 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="text-4xl mb-3">📋</div>
-        <p className="font-display font-black tracking-wide" style={{ color: 'var(--text-sec)' }}>NESSUN ACQUISTO</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Gli upgrade acquistati appariranno qui.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-      {upgrades.map((u, i) => {
-        const player = playerData[u.player_slug]
-        const attr = catalogMap[u.attribute_key]
-        return (
-          <div key={`${u.player_slug}-${u.attribute_key}-${i}`}
-            className="flex items-center gap-3 px-4 py-3"
-            style={{
-              background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
-              borderBottom: i < upgrades.length - 1 ? '1px solid var(--border)' : 'none',
-            }}>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>
-                {player?.name ?? u.player_slug.replace(/-/g, ' ')}
-              </div>
-              <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-dim)' }}>
-                {attr?.label_it ?? u.attribute_key}
-                {u.old_value !== null && u.new_value !== null && (
-                  <span className="ml-2 font-mono">{u.old_value} → {u.new_value}</span>
-                )}
-              </div>
-            </div>
-            <div className="font-display font-black text-sm shrink-0" style={{ color: '#f87171' }}>
-              −{u.gc_cost} GC
-            </div>
-            <div className="text-xs shrink-0" style={{ color: 'var(--text-dim)' }}>
-              {new Date(u.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }
