@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { RosterMembership } from '@/types/league'
 import type { Player } from '@/types/nba'
+import AddRookieForm from './AddRookieForm'
 
 interface Props {
   isAdmin: boolean
@@ -125,6 +126,13 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
               <Stat label="Max" value={MAX_ROSTER} color="var(--text-dim)" />
             </div>
           </div>
+        )}
+
+        {hasFranchise && (
+          <AddRookieForm
+            onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
+            onError={msg => showToast(msg, false)}
+          />
         )}
 
         {/* No franchise assigned */}
