@@ -23,6 +23,7 @@ export interface Notification {
   processedAt?: string | null
   processedBy?: string | null
   cancelledAt?: string | null
+  doneAt?: string | null
 }
 
 export async function GET() {
@@ -205,7 +206,16 @@ export async function GET() {
 
   notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  return NextResponse.json({ notifications: notifications.slice(0, 100) })
+  const top = notifications.slice(0, 100)
+  const { data: states } = await admin
+    .from('admin_notification_state')
+    .select('notification_id, done_at')
+    .in('notification_id', top.map(n => n.id))
+  const doneMap = new Map((states ?? []).map((s: { notification_id: string; done_at: string }) => [s.notification_id, s.done_at]))
+
+  return NextResponse.json({
+    notifications: top.map(n => ({ ...n, doneAt: doneMap.get(n.id) ?? null })),
+  })
 }
 
 export async function PATCH(request: Request) {
@@ -214,7 +224,26 @@ export async function PATCH(request: Request) {
 
   const { id, action } = await request.json()
   if (!id || !action) return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 })
-  if (!id.startsWith('shop-')) return NextResponse.json({ error: 'Solo shop_purchase supportato' }, { status: 400 })
+
+  // Stato "effettuata": vale per qualunque tipo di notifica
+  if (action === 'mark_done') {
+    const { error } = await createAdminClient()
+      .from('admin_notification_state')
+      .upsert({ notification_id: id, done_by: adminUser.id, done_at: new Date().toISOString() }, { onConflict: 'notification_id' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+  if (action === 'undo_done') {
+    const { error } = await createAdminClient()
+      .from('admin_notification_state')
+      .delete()
+      .eq('notification_id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  // Azioni sugli acquisti (mark_processed, cancel): solo shop-
+  if (!id.startsWith('shop-')) return NextResponse.json({ error: 'Azione non valida per questo tipo di notifica' }, { status: 400 })
 
   const txId = id.replace('shop-', '')
   const admin = createAdminClient()

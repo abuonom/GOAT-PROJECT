@@ -59,7 +59,6 @@ export async function claimFranchise(franchiseId: string): Promise<{ error?: str
     season_id: season.id,
     user_id: user.id,
     franchise_id: franchiseId,
-    games_played: 0,
   })
 
   if (error) {

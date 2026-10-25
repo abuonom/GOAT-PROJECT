@@ -32,6 +32,7 @@ interface AdminNotification {
   processedAt?: string | null
   processedBy?: string | null
   cancelledAt?: string | null
+  doneAt?: string | null
 }
 
 interface GmCreditRow {
@@ -136,6 +137,19 @@ export default function AdminPage() {
     setProcessingId(null)
     if (json.error) { showToast(json.error, false); return }
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, processedAt: new Date().toISOString() } : n))
+  }
+
+  async function setDone(id: string, done: boolean) {
+    setProcessingId(id)
+    const res = await fetch('/api/admin/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: done ? 'mark_done' : 'undo_done' }),
+    })
+    const json = await res.json()
+    setProcessingId(null)
+    if (json.error) { showToast(json.error, false); return }
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, doneAt: done ? new Date().toISOString() : null } : n))
   }
 
   async function cancelPurchase(id: string) {
@@ -359,7 +373,7 @@ export default function AdminPage() {
   const confirmedCount = users.filter(u => u.email_confirmed_at).length
   const visibleNotifications = showProcessed
     ? notifications
-    : notifications.filter(n => n.type !== 'shop_purchase' || (!n.processedAt && !n.cancelledAt))
+    : notifications.filter(n => !n.doneAt && (n.type !== 'shop_purchase' || (!n.processedAt && !n.cancelledAt)))
   const unprocessedShopCount = notifications.filter(n => n.type === 'shop_purchase' && !n.processedAt && !n.cancelledAt).length
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -481,7 +495,7 @@ export default function AdminPage() {
                   const isCancelled = n.type === 'shop_purchase' && !!n.cancelledAt
                   const isProcessed = n.type === 'shop_purchase' && !!n.processedAt && !isCancelled
                   const isProcessing = processingId === n.id
-                  const isDone = isProcessed || isCancelled
+                  const isDone = isProcessed || isCancelled || !!n.doneAt
 
                   return (
                     <div key={n.id} className="flex flex-col px-4 py-3 gap-2"
@@ -530,6 +544,21 @@ export default function AdminPage() {
                               {n.amount > 0 ? '+' : ''}{n.amount} GC
                             </span>
                           ) : <span />}
+                          {n.type !== 'shop_purchase' && (
+                            <button
+                              onClick={() => setDone(n.id, !n.doneAt)}
+                              disabled={isProcessing}
+                              className="text-xs font-semibold px-3 py-2 rounded-lg"
+                              style={{
+                                background: n.doneAt ? 'var(--surface2)' : 'rgba(74,222,128,0.08)',
+                                color: n.doneAt ? 'var(--text-sec)' : '#4ade80',
+                                border: '1px solid rgba(74,222,128,0.2)',
+                                opacity: isProcessing ? 0.5 : 1,
+                              }}
+                            >
+                              {isProcessing ? '…' : n.doneAt ? '↩ Riapri' : '✓ Effettuata'}
+                            </button>
+                          )}
                           {n.type === 'shop_purchase' && !isDone && (
                             <div className="flex items-center gap-2">
                               <button
