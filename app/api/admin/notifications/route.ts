@@ -96,10 +96,10 @@ export async function GET() {
   const attrMap: Record<string, string> = {}
   for (const a of (attrsResult.data ?? [])) attrMap[a.attribute_key] = a.label_it
 
-  const playerInfoMap: Record<string, { name: string; team: string }> = {}
+  const playerNameMap: Record<string, string> = {}
   for (const row of (playerRowsRes.data ?? [])) {
     const p = row.data as { name?: string; team?: string }
-    playerInfoMap[row.slug] = { name: p.name ?? row.slug.replace(/-/g, ' '), team: p.team ?? '' }
+    playerNameMap[row.slug] = p.name ?? row.slug.replace(/-/g, ' ')
   }
 
   for (const tx of (purchases ?? [])) {
@@ -107,8 +107,7 @@ export async function GET() {
     const attrLabel = tx.badge_name
       ? `Badge ${tx.badge_name} Bronze→Silver`
       : (attrMap[tx.attribute_key] ?? tx.attribute_key)
-    const playerInfo = playerInfoMap[tx.player_slug]
-    const playerName = playerInfo?.name ?? tx.player_slug.replace(/-/g, ' ')
+    const playerName = playerNameMap[tx.player_slug] ?? tx.player_slug.replace(/-/g, ' ')
     // Formato: "Attributo - da -> a" oppure "Badge - Bronzo -> Argento"
     const change = tx.badge_name
       ? `Badge ${tx.badge_name} - Bronzo -> Argento`
