@@ -74,6 +74,8 @@ export default function GmShopClient() {
     return calculateUpgradeCost(attr.base_cost, fromValue, false)
   }, [attr, fromValue])
 
+  const canAfford = roster ? roster.balance >= (previewCost ?? 0) : false
+
   const remaining = useMemo(
     () => (selected ? GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON - selected.upgradeCount : 0),
     [selected]
@@ -283,6 +285,9 @@ export default function GmShopClient() {
               {!attr.is_badge_upgrade && <div>Da {fromValue} a {fromValue + 1}</div>}
               <div>Costo: <span className="font-bold" style={{ color: 'var(--gold)' }}>{previewCost} GC</span></div>
               <div style={{ color: 'var(--text-sec)' }}>Saldo dopo: {roster.balance - (previewCost ?? 0)} GC</div>
+              {!canAfford && (
+                <div className="text-xs" style={{ color: '#f87171' }}>GC insufficienti: ti servono {previewCost} GC, ne hai {roster.balance}.</div>
+              )}
             </div>
             <p className="text-xs" style={{ color: 'var(--text-sec)' }}>
               L'upgrade viene validato dall'admin in game. Dichiarare un valore non corretto comporta penalità.
@@ -291,7 +296,7 @@ export default function GmShopClient() {
               <button onClick={() => setStep(attr.is_badge_upgrade ? 'attribute' : 'values')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
               <button
                 onClick={submit}
-                disabled={submitting}
+                disabled={submitting || !canAfford}
                 className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50"
                 style={{ background: 'var(--gold)', color: '#000' }}
               >{submitting ? 'Invio…' : 'Conferma upgrade'}</button>

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createHash } from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +10,7 @@ const supabase = createClient(
 // Versione leggera di /api/players per il draft-builder.
 // Restituisce solo i campi letti dal draft-builder e da playerScorer,
 // senza descrizioni/immagini dei badge né storico rating (≈ 2,7 MB → molto meno).
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { data, error } = await supabase.from('players').select('data')
 
   if (error) {
@@ -51,7 +52,19 @@ export async function GET() {
     }
   })
 
-  return NextResponse.json({ success: true, data: players }, {
-    headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' },
+  // ETag dal contenuto: se la lista non cambia, il browser riceve 304 senza scaricare 1 MB
+  const body = JSON.stringify({ success: true, data: players })
+  const etag = `"${createHash('sha1').update(body).digest('base64url').slice(0, 27)}"`
+
+  if (req.headers.get('if-none-match') === etag) {
+    return new NextResponse(null, { status: 304, headers: { ETag: etag } })
+  }
+
+  return new NextResponse(body, {
+    headers: {
+      'Content-Type': 'application/json',
+      ETag: etag,
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+    },
   })
 }

@@ -36,7 +36,8 @@ const TEAMS: Record<string, TeamEntry> = {
 export function teamLogoUrl(teamName: string): string | null {
   const entry = TEAMS[teamName]
   if (!entry) return null
-  return `https://a.espncdn.com/i/teamlogos/nba/500/${entry.espn}.png`
+  // Loghi scaricati in public/teams/ (WebP 128 px) per evitare il caricamento da ESPN
+  return `/teams/${entry.espn}.webp`
 }
 
 export function teamAbbreviation(teamName: string): string | null {

@@ -4,6 +4,7 @@ const tabs = [
   { label: 'HOME', href: '/' },
   { label: 'REGOLAMENTO', href: '/regolamento' },
   { label: 'ROSTER ATTUALI', href: '/roster-attuali' },
+  { label: 'ALBO D\'ORO', href: '/albo-doro' },
   { label: 'LOGIN', href: '/login' },
 ]
 
