@@ -109,12 +109,10 @@ export async function GET() {
       : (attrMap[tx.attribute_key] ?? tx.attribute_key)
     const playerInfo = playerInfoMap[tx.player_slug]
     const playerName = playerInfo?.name ?? tx.player_slug.replace(/-/g, ' ')
-    // Squadra del gioco (non quella reale): mostrata solo se presente
-    const gameTeam = playerInfo?.team && playerInfo.team !== 'Free Agency' ? playerInfo.team : null
+    // Formato: "Attributo - da -> a" oppure "Badge - Bronzo -> Argento"
     const change = tx.badge_name
-      ? `${tx.badge_name}: Bronzo → Argento`
-      : `da ${tx.old_value} a ${tx.new_value}`
-    const playerDisplay = [playerName, gameTeam].filter(Boolean).join(' · ')
+      ? `Badge ${tx.badge_name} - Bronzo -> Argento`
+      : `${attrLabel} - ${tx.old_value} -> ${tx.new_value}`
 
     notifications.push({
       id: `shop-${tx.id}`,
@@ -123,8 +121,8 @@ export async function GET() {
       displayName: gmName(tx.user_id),
       franchiseName: f.name ?? null,
       franchiseAbbr: f.abbr ?? null,
-      title: `Upgrade: ${attrLabel}`,
-      detail: `${playerDisplay} — ${change}`,
+      title: playerName,
+      detail: change,
       amount: -tx.gc_cost,
       createdAt: tx.created_at,
       processedAt: tx.admin_processed_at ?? null,

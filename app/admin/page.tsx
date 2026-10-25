@@ -500,14 +500,11 @@ export default function AdminPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="text-xs font-semibold" style={{ color: 'var(--text-sec)' }}>
-                              {n.displayName ?? n.userId.slice(0, 8)}
-                            </span>
                             {n.franchiseAbbr && (
-                              <span className="text-xs font-black font-display" style={{ color: 'var(--text-dim)' }}>· {n.franchiseAbbr}</span>
+                              <span className="text-xs font-black font-display" style={{ color: 'var(--text-sec)' }}>{n.franchiseAbbr}</span>
                             )}
                             {n.detail && (
-                              <span className="text-xs" style={{ color: 'var(--text-dim)', wordBreak: 'break-word' }}>· {n.detail}</span>
+                              <span className="text-xs" style={{ color: 'var(--text-dim)', wordBreak: 'break-word' }}>/ {n.detail}</span>
                             )}
                           </div>
                         </div>
