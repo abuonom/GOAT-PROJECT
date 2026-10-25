@@ -26,7 +26,7 @@ export async function GET() {
 
   const { data: members, error } = await admin
     .from('league_members')
-    .select('user_id, games_played, franchises(name, abbreviation)')
+    .select('user_id, franchise_id, franchises(name, abbreviation)')
     .eq('season_id', season.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -48,10 +48,16 @@ export async function GET() {
     if (p.display_name) displayNameMap[p.id] = p.display_name
   })
 
+  const { data: gamesRows } = await admin
+    .from('franchise_season_games')
+    .select('franchise_id, games_played')
+    .eq('season_id', season.id)
+  const gamesByFranchise = new Map((gamesRows ?? []).map((g: { franchise_id: string; games_played: number }) => [g.franchise_id, g.games_played]))
+
   const rows = await Promise.all(
     (members ?? []).map(async (m: {
       user_id: string
-      games_played: number
+      franchise_id: string
       franchises: { name: string; abbreviation: string } | null
     }) => {
       const { data: bal } = await admin.rpc('get_gc_balance', { p_user_id: m.user_id, p_season_id: season.id })
@@ -61,7 +67,7 @@ export async function GET() {
         email: emailMap[m.user_id] ?? null,
         franchiseName: m.franchises?.name ?? null,
         franchiseAbbr: m.franchises?.abbreviation ?? null,
-        gamesPlayed: m.games_played,
+        gamesPlayed: gamesByFranchise.get(m.franchise_id) ?? 0,
         balance: bal ?? 0,
         seasonId: season.id,
       }
@@ -91,10 +97,29 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'gamesPlayed non valido' }, { status: 400 })
     }
 
-    const { data: newGcTotal } = await admin
-      .rpc('calculate_gc_earned', { p_games_played: gamesPlayed })
+    const { data: member } = await admin
+      .from('league_members')
+      .select('franchise_id')
+      .eq('user_id', targetUserId)
+      .eq('season_id', seasonId)
+      .single()
+    if (!member) return NextResponse.json({ error: 'GM senza franchigia in questa stagione' }, { status: 400 })
 
-    const gcTotal = newGcTotal ?? 0
+    const { error: gamesErr } = await admin
+      .from('franchise_season_games')
+      .upsert({
+        season_id: seasonId,
+        franchise_id: member.franchise_id,
+        games_played: gamesPlayed,
+        updated_at: new Date().toISOString(),
+        updated_by: adminUser.id,
+      }, { onConflict: 'season_id,franchise_id' })
+    if (gamesErr) return NextResponse.json({ error: gamesErr.message }, { status: 500 })
+
+    const { data: gcTotal } = await admin.rpc('franchise_gc_earned', {
+      p_franchise_id: member.franchise_id,
+      p_season_id: seasonId,
+    })
 
     const { data: existing } = await admin
       .from('gm_credit_ledger')
@@ -104,15 +129,7 @@ export async function PATCH(req: NextRequest) {
       .eq('type', 'earned')
 
     const currentEarned = (existing ?? []).reduce((s: number, r: { amount: number }) => s + r.amount, 0)
-    const delta = gcTotal - currentEarned
-
-    const { error: memberErr } = await admin
-      .from('league_members')
-      .update({ games_played: gamesPlayed })
-      .eq('user_id', targetUserId)
-      .eq('season_id', seasonId)
-
-    if (memberErr) return NextResponse.json({ error: memberErr.message }, { status: 500 })
+    const delta = (gcTotal ?? 0) - currentEarned
 
     if (delta > 0) {
       const { error: ledgerErr } = await admin
@@ -128,7 +145,7 @@ export async function PATCH(req: NextRequest) {
       if (ledgerErr) return NextResponse.json({ error: ledgerErr.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, gamesPlayed, gcTotal, delta })
+    return NextResponse.json({ ok: true, gamesPlayed, gcTotal: gcTotal ?? 0, delta })
   }
 
   if (action === 'adjustment') {
@@ -171,10 +188,17 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (action === 'reset_games') {
-    const { error } = await admin
+    const { data: member } = await admin
       .from('league_members')
-      .update({ games_played: 0 })
+      .select('franchise_id')
       .eq('user_id', targetUserId)
+      .eq('season_id', seasonId)
+      .single()
+    if (!member) return NextResponse.json({ error: 'GM senza franchigia in questa stagione' }, { status: 400 })
+    const { error } = await admin
+      .from('franchise_season_games')
+      .update({ games_played: 0, updated_at: new Date().toISOString(), updated_by: adminUser.id })
+      .eq('franchise_id', member.franchise_id)
       .eq('season_id', seasonId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
