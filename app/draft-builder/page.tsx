@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { addPlayerToRoster, removePlayerFromRoster } from '@/lib/league/roster'
 import { useRouter } from 'next/navigation'
 import { Player } from '@/types/nba'
 import { useCapToasts } from '@/hooks/useCapToasts'
@@ -766,13 +767,9 @@ function DraftBuilderRow({
 
   async function handleRosterToggle() {
     setRosterActing(true)
-    const method = isInMyRoster ? 'DELETE' : 'POST'
-    const res = await fetch('/api/roster', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerSlug: player.slug }),
-    })
-    const json = await res.json()
+    const json = isInMyRoster
+      ? await removePlayerFromRoster(player.slug)
+      : await addPlayerToRoster(player.slug)
     setRosterActing(false)
     if (!json.error) onRosterChange()
   }
@@ -1059,12 +1056,7 @@ function RosterTab({
 
   async function removePlayer(slug: string) {
     setActing(slug)
-    const res = await fetch('/api/roster', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerSlug: slug }),
-    })
-    const json = await res.json()
+    const json = await removePlayerFromRoster(slug)
     setActing(null)
     if (json.error) { showToast(json.error, false); return }
     setMemberships(prev => prev.filter(m => m.player_slug !== slug))

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { removePlayerFromRoster } from '@/lib/league/roster'
 import { useRouter } from 'next/navigation'
 import type { RosterMembership } from '@/types/league'
 import type { Player } from '@/types/nba'
@@ -47,12 +48,7 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
 
   async function removePlayer(slug: string) {
     setActing(slug)
-    const res = await fetch('/api/roster', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerSlug: slug }),
-    })
-    const json = await res.json()
+    const json = await removePlayerFromRoster(slug)
     setActing(null)
     if (json.error) { showToast(json.error, false); return }
     setMemberships(prev => prev.filter(m => m.player_slug !== slug))

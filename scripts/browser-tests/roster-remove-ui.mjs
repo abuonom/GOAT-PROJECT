@@ -1,0 +1,20 @@
+// Dal roster, rimuove un giocatore dal pulsante (come il GM) e verifica:
+// esito, numero di giocatori mostrato nella pagina, e lettura successiva della cache.
+import { chromium } from 'playwright'
+const [base, email, password] = process.argv.slice(2)
+const browser = await chromium.launch()
+const page = await browser.newPage()
+await page.goto(base + '/login', { waitUntil: 'networkidle' })
+await page.fill('input[type="email"]', email)
+await page.fill('input[type="password"]', password)
+await page.getByRole('button', { name: /accedi/i }).last().click()
+await page.waitForURL(u => !u.toString().includes('/login'), { timeout: 30000 })
+await page.goto(base + '/roster', { waitUntil: 'networkidle', timeout: 60000 })
+await page.waitForFunction(() => document.body.innerText.includes('Giocatori'), null, { timeout: 30000 })
+const before = await page.evaluate(async () => (await (await fetch('/api/roster/full')).json()).memberships.length)
+await page.getByRole('button', { name: 'Rimuovi' }).first().click()
+await page.waitForTimeout(2500)
+const after = await page.evaluate(async () => (await (await fetch('/api/roster/full')).json()).memberships.length)
+const toast = await page.textContent('body')
+console.log(JSON.stringify({ before, after, removedOk: after === before - 1, toastRimosso: toast.includes('rimosso') }))
+await browser.close()

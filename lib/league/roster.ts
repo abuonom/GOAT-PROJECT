@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import type { RosterMembership } from '@/types/league'
+import { invalidateRoster } from '@/lib/league/roster-cache'
 
 async function getAuthContext() {
   const supabase = await createClient()
@@ -128,6 +129,7 @@ export async function addPlayerToRoster(playerSlug: string): Promise<{ error?: s
       return { error: error.message }
     }
 
+    invalidateRoster(user.id)
     return {}
   } catch (e) {
     return { error: String(e) }
@@ -161,6 +163,7 @@ export async function removePlayerFromRoster(playerSlug: string): Promise<{ erro
       .eq('id', membership.id)
 
     if (error) return { error: error.message }
+    invalidateRoster(user.id)
     return {}
   } catch (e) {
     return { error: String(e) }
@@ -207,6 +210,7 @@ export async function confirmRoster(): Promise<{ error?: string; count?: number 
       new_value: { player_count: ids.length },
     })
 
+    invalidateRoster(user.id)
     return { count: ids.length }
   } catch (e) {
     return { error: String(e) }
