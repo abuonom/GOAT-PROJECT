@@ -34,10 +34,6 @@ export default function GmCreditsClient() {
   const router = useRouter()
   const [data, setData] = useState<GmCreditsData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [gamesInput, setGamesInput] = useState('')
-  const [gamesSubmitting, setGamesSubmitting] = useState(false)
-  const [showGamesForm, setShowGamesForm] = useState(false)
-
   const load = useCallback(async () => {
     setLoading(true)
     const res = await fetch('/api/gm-credits')
@@ -46,24 +42,6 @@ export default function GmCreditsClient() {
   }, [])
 
   useEffect(() => { load() }, [load])
-
-  async function submitGames() {
-    const g = parseInt(gamesInput)
-    if (isNaN(g) || g < 0 || g > 82) return
-    if (data && g < data.gamesPlayed) return
-    setGamesSubmitting(true)
-    const res = await fetch('/api/gm-credits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gamesPlayed: g }),
-    })
-    const json = await res.json()
-    setGamesSubmitting(false)
-    if (json.error) { setShowGamesForm(false); return }
-    setGamesInput('')
-    setShowGamesForm(false)
-    await load()
-  }
 
   const nextMilestone = data ? getNextMilestone(data.gamesPlayed) : null
   const progressPct = nextMilestone && data
@@ -130,67 +108,11 @@ export default function GmCreditsClient() {
               <div className="text-5xl opacity-30">💎</div>
             </div>
 
-            {/* Self-report games played */}
-            {!showGamesForm ? (
-              <button
-                onClick={() => { setShowGamesForm(true); setGamesInput(String(data.gamesPlayed)) }}
-                className="w-full rounded-xl px-5 py-3 flex items-center justify-between transition-opacity"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-              >
-                <span className="text-sm font-semibold" style={{ color: 'var(--text-sec)' }}>
-                  Aggiorna partite giocate
-                </span>
-                <span className="text-xs px-3 py-1.5 rounded font-semibold"
-                  style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}>
-                  Modifica
-                </span>
-              </button>
-            ) : (
-              <div className="rounded-xl px-5 py-4 space-y-3"
-                style={{ background: 'var(--surface)', border: '1px solid var(--gold-dim)' }}>
-                <div>
-                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-sec)' }}>
-                    PARTITE GIOCATE QUESTA STAGIONE
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                    Attuale: <strong style={{ color: 'var(--text)' }}>{data.gamesPlayed}</strong> — puoi solo aumentare il valore.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min={data.gamesPlayed}
-                    max={82}
-                    value={gamesInput}
-                    onChange={e => setGamesInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && submitGames()}
-                    autoFocus
-                    className="flex-1 px-3 py-2 rounded-lg text-sm font-bold"
-                    style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--gold)' }}
-                  />
-                  <button
-                    onClick={submitGames}
-                    disabled={gamesSubmitting || parseInt(gamesInput) <= data.gamesPlayed}
-                    className="font-display font-black tracking-wide text-sm px-4 py-2 rounded-lg"
-                    style={{
-                      background: 'rgba(74,222,128,0.15)', color: '#4ade80',
-                      border: '1px solid rgba(74,222,128,0.4)',
-                      opacity: gamesSubmitting || parseInt(gamesInput) <= data.gamesPlayed ? 0.5 : 1,
-                    }}
-                  >
-                    {gamesSubmitting ? '...' : 'SALVA'}
-                  </button>
-                  <button onClick={() => setShowGamesForm(false)}
-                    className="text-sm px-3 py-2 rounded-lg"
-                    style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
-                    ✕
-                  </button>
-                </div>
-                <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-                  I crediti verranno assegnati automaticamente. L'admin verificherà la correttezza dei dati.
-                </p>
-              </div>
-            )}
+            {/* Partite inserite dall'admin: sola lettura */}
+            <div className="rounded-xl px-5 py-3 text-xs"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>
+              Le partite giocate sono inserite dall&apos;admin. I GC si assegnano automaticamente in base a quelle.
+            </div>
 
             {/* Games played + next milestone */}
             <div
