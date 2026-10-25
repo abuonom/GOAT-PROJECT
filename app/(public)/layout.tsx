@@ -28,6 +28,15 @@ export default async function PublicLayout({ children }: { children: React.React
             <p className="font-display text-lg font-bold tracking-wide" style={{ color: 'var(--text)' }}>COMPANION</p>
           </Link>
           <nav className="flex gap-1 mt-6 overflow-x-auto">
+            {isLoggedIn && (
+              <Link
+                href="/dashboard"
+                className="font-display font-bold tracking-wider text-sm px-4 py-3 whitespace-nowrap border-b-2 transition-colors"
+                style={{ color: 'var(--gold)', borderColor: 'transparent' }}
+              >
+                ← DASHBOARD
+              </Link>
+            )}
             {tabs.map(tab => (
               <Link
                 key={tab.href}
