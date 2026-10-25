@@ -47,6 +47,7 @@ export interface Badge {
 
 export interface PlayerBadges {
   total?: number
+  counts?: Record<string, number>
   list?: Badge[]
 }
 

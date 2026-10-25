@@ -46,8 +46,13 @@ export async function GET(req: NextRequest) {
       wingspan: p.wingspan,
       college: p.college,
       attributes: p.attributes,
+      // Solo conteggi per tier: il draft-builder non usa i nomi dei badge nella lista
       badges: {
-        list: (p.badges?.list ?? []).map(b => ({ name: b.name, tier: b.tier, category: b.category })),
+        total: (p.badges?.list ?? []).length,
+        counts: (p.badges?.list ?? []).reduce<Record<string, number>>((acc, b) => {
+          acc[b.tier] = (acc[b.tier] ?? 0) + 1
+          return acc
+        }, {}),
       },
     }
   })

@@ -381,7 +381,7 @@ export default function DraftBuilderPage() {
           let diff = 0
           if (key === 'ovr')      diff = b.player.overall - a.player.overall
           else if (key === 'contract') diff = (b.contract?.salaries[0]?.amount ?? 0) - (a.contract?.salaries[0]?.amount ?? 0)
-          else if (key === 'badges')  diff = (b.player.badges?.list?.length ?? 0) - (a.player.badges?.list?.length ?? 0)
+          else if (key === 'badges')  diff = (b.player.badges?.total ?? 0) - (a.player.badges?.total ?? 0)
           else diff = totalActive === 0 ? b.player.overall - a.player.overall : b.score.total - a.score.total
           if (diff !== 0) return diff
         }
@@ -960,7 +960,7 @@ function DraftBuilderRow({
       {/* Badge tier counters — 5 fixed slots, always same width/height */}
       <div className="hidden lg:flex items-center gap-1 shrink-0">
         {BADGE_TIERS.map(({ tier, short, color, bg, border, shadow }) => {
-          const count = player.badges?.list?.filter(b => b.tier === tier).length ?? 0
+          const count = player.badges?.counts?.[tier] ?? 0
           return (
             <div
               key={tier}
