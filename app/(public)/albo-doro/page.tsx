@@ -61,8 +61,13 @@ export default async function AlboDoroPage() {
     .select('username, player_name, wins, losses, ernesto_titles, nba_titles')
 
   const rows = (data ?? []) as Row[]
-  const nbaRows = [...rows].sort((a, b) => b.nba_titles - a.nba_titles || a.player_name.localeCompare(b.player_name))
-  const ernestoRows = [...rows].sort((a, b) => b.ernesto_titles - a.ernesto_titles || b.wins - a.wins)
+  // Solo i vincitori: chi ha 0 titoli non compare
+  const nbaRows = rows
+    .filter(r => r.nba_titles > 0)
+    .sort((a, b) => b.nba_titles - a.nba_titles || a.player_name.localeCompare(b.player_name))
+  const ernestoRows = rows
+    .filter(r => r.ernesto_titles > 0)
+    .sort((a, b) => b.ernesto_titles - a.ernesto_titles || b.wins - a.wins)
 
   return (
     <section className="space-y-10">
