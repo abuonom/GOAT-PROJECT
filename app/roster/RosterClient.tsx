@@ -205,9 +205,6 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
                           {pos}
                         </span>
                       ))}
-                      {player?.team && (
-                        <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{player.team}</span>
-                      )}
                     </div>
                   </div>
 
