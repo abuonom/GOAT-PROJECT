@@ -6,10 +6,10 @@ import { Player } from '@/types/nba'
 import { useCapToasts } from '@/hooks/useCapToasts'
 import type { ContractEntry } from '@/app/api/contracts/route'
 import type { PlayerExtra } from '@/hooks/usePotentials'
-import { scorePlayer, BuildWeights, DEFAULT_WEIGHTS, PlayerScore } from '@/lib/nba/playerScorer'
+import { useScoredPlayers } from '@/hooks/useScoredPlayers'
+import { BuildWeights, DEFAULT_WEIGHTS, PlayerScore } from '@/lib/nba/playerScorer'
 import Toast from '@/components/Toast'
 import { createClient } from '@/lib/supabase/client'
-import { matchContract } from '@/lib/nba/matchContract'
 import AttributeFilterPicker, { AttrFilter, ATTRS } from '@/components/AttributeFilterPicker'
 import TeamLogo from '@/components/TeamLogo'
 import { useOwnershipMap, type OwnershipMap } from '@/hooks/useRoster'
@@ -236,8 +236,6 @@ const DRAFT_YEARS = [2026, 2025, 2024, 2023, 2022, 2021]
 export default function DraftBuilderPage() {
   const router = useRouter()
   const [weights, setWeights] = useState<BuildWeights>(DEFAULT_WEIGHTS)
-  const [players, setPlayers] = useState<Player[]>([])
-  const [potentials, setPotentials] = useState<Map<string, PlayerExtra>>(new Map())
   const [contracts, setContracts] = useState<ContractEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -324,31 +322,10 @@ export default function DraftBuilderPage() {
     }
   }, [draftYears])
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/players/draft-list').then(r => r.json()),
-      fetch('/api/contracts').then(r => r.json()),
-    ]).then(([pd, cd]) => {
-      const allPlayers: Player[] = pd.success ? pd.data : []
-      setPlayers(allPlayers)
-      if (cd.success) setContracts(cd.data)
-
-      // Fetch potentials in chunks
-      const slugs = allPlayers.map((p: Player) => p.slug)
-      const chunks: string[][] = []
-      for (let i = 0; i < slugs.length; i += 50) chunks.push(slugs.slice(i, i + 50))
-      return Promise.all(
-        chunks.map(c => fetch(`/api/players/potentials?slugs=${c.join(',')}`).then(r => r.json()))
-      )
-    }).then(results => {
-      const map = new Map<string, PlayerExtra>()
-      for (const batch of results) {
-        for (const [slug, val] of Object.entries(batch)) map.set(slug, val as PlayerExtra)
-      }
-      setPotentials(map)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
+  // Lista giocatori già punteggiata dal server (score, potenziale, contratto)
+  const { data: serverScored, loading: scoredLoading } = useScoredPlayers(weights)
+  useEffect(() => { setLoading(scoredLoading) }, [scoredLoading])
+  useEffect(() => { fetch('/api/contracts').then(r => r.json()).then(cd => { if (cd.success) setContracts(cd.data) }) }, [])
 
   const activeDraftSlugs = useMemo(() => {
     if (draftYears.length === 0) return null
@@ -362,19 +339,15 @@ export default function DraftBuilderPage() {
   const totalActive = weights.rebuild + weights.winNow + weights.valueHunt + weights.teamFriendly + weights.physicalFreak + weights.capRelief
 
   const scored = useMemo(() => {
-    return players
-
+    return serverScored
       .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
       .filter(p => !posFilter || p.positions.includes(posFilter))
       .filter(p => attrFilters.every(f => (p.attributes[f.key] ?? 0) >= f.min))
       .filter(p => !activeDraftSlugs || activeDraftSlugs.has(p.slug))
       .filter(p => !draftedSlugs.has(p.slug))
       .map(p => {
-        const extra = potentials.get(p.slug)
-        const contract = contracts.length > 0 ? matchContract(p.name, contracts) : undefined
-        const score = scorePlayer(p, extra, contract, weights)
         const pick = draftPicks.get(p.slug)
-        return { player: p, extra, contract, score, pick: pick ?? null }
+        return { player: p as unknown as Player, extra: { potential: p.potential, age: p.age }, contract: (p.contract ?? undefined) as ContractEntry | undefined, score: p.score as PlayerScore, pick: pick ?? null }
       })
       .sort((a, b) => {
         for (const key of sortKeys) {
@@ -387,7 +360,7 @@ export default function DraftBuilderPage() {
         }
         return 0
       })
-  }, [players, potentials, contracts, weights, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortKeys])
+  }, [serverScored, search, posFilter, attrFilters, activeDraftSlugs, draftPicks, totalActive, draftedSlugs, sortKeys])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -511,7 +484,7 @@ export default function DraftBuilderPage() {
       )}
 
       {activeTab === 'roster' && (
-        <RosterTab players={players} onAddPlayers={() => setActiveTab('players')} onRosterChange={reloadOwnership} />
+        <RosterTab players={serverScored as unknown as Player[]} onAddPlayers={() => setActiveTab('players')} onRosterChange={reloadOwnership} />
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 flex gap-5" style={{ display: activeTab === 'players' ? 'flex' : 'none' }}>
@@ -663,7 +636,7 @@ export default function DraftBuilderPage() {
                   </span>
                 </div>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {players.filter(p => draftedSlugs.has(p.slug)).map(p => (
+                  {serverScored.filter(p => draftedSlugs.has(p.slug)).map(p => (
                     <div key={p.slug} className="flex items-center justify-between gap-2 text-xs py-0.5">
                       <span className="truncate" style={{ color: 'var(--text-sec)' }}>{p.name}</span>
                       <button
