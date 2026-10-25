@@ -11,7 +11,7 @@ async function requireAdmin() {
 
 export interface Notification {
   id: string
-  type: 'gc_earned' | 'shop_purchase' | 'roster_confirmed' | 'franchise_claimed'
+  type: 'shop_purchase'
   userId: string
   displayName: string | null
   franchiseName: string | null
@@ -23,7 +23,6 @@ export interface Notification {
   processedAt?: string | null
   processedBy?: string | null
   cancelledAt?: string | null
-  doneAt?: string | null
 }
 
 export async function GET() {
@@ -73,31 +72,6 @@ export async function GET() {
   }
 
   const notifications: Notification[] = []
-
-  // 1. GC earned
-  const { data: gcEarned } = await admin
-    .from('gm_credit_ledger')
-    .select('id, user_id, amount, note, created_at')
-    .eq('season_id', season.id)
-    .eq('type', 'earned')
-    .order('created_at', { ascending: false })
-    .limit(50)
-
-  for (const e of (gcEarned ?? [])) {
-    const f = franchise(e.user_id)
-    notifications.push({
-      id: `gc-${e.id}`,
-      type: 'gc_earned',
-      userId: e.user_id,
-      displayName: gmName(e.user_id),
-      franchiseName: f.name ?? null,
-      franchiseAbbr: f.abbr ?? null,
-      title: `+${e.amount} GC guadagnati`,
-      detail: e.note ?? '',
-      amount: e.amount,
-      createdAt: e.created_at,
-    })
-  }
 
   // 2. GM Shop purchases — fetch player name+team for each slug
   const { data: purchases } = await admin
@@ -155,67 +129,9 @@ export async function GET() {
     })
   }
 
-  // 3. Franchise claims
-  for (const m of members) {
-    const f = m.franchises as { name: string; abbreviation: string } | null
-    const name = gmName(m.user_id)
-    notifications.push({
-      id: `franchise-${m.user_id}`,
-      type: 'franchise_claimed',
-      userId: m.user_id,
-      displayName: name,
-      franchiseName: f?.name ?? null,
-      franchiseAbbr: f?.abbreviation ?? null,
-      title: `Franchigia scelta: ${f?.name ?? '—'}`,
-      detail: `GM: ${name}`,
-      createdAt: m.joined_at,
-    })
-  }
-
-  // 4. Roster confirmations
-  const { data: confirmedRosters } = await admin
-    .from('roster_memberships')
-    .select('franchise_id, acquired_at')
-    .eq('season_id', season.id)
-    .eq('status', 'confirmed')
-    .order('acquired_at', { ascending: false })
-
-  const seenFranchise = new Set<string>()
-  for (const r of (confirmedRosters ?? [])) {
-    if (seenFranchise.has(r.franchise_id)) continue
-    seenFranchise.add(r.franchise_id)
-
-    const matchedMember = members.find(m => m.franchise_id === r.franchise_id)
-    if (!matchedMember) continue
-
-    const f = matchedMember.franchises as { name: string; abbreviation: string } | null
-    const name = gmName(matchedMember.user_id)
-
-    notifications.push({
-      id: `roster-${r.franchise_id}`,
-      type: 'roster_confirmed',
-      userId: matchedMember.user_id,
-      displayName: name,
-      franchiseName: f?.name ?? null,
-      franchiseAbbr: f?.abbreviation ?? null,
-      title: 'Roster confermato',
-      detail: `${f?.abbreviation ?? ''} · ${f?.name ?? ''}`,
-      createdAt: r.acquired_at,
-    })
-  }
-
   notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  const top = notifications.slice(0, 100)
-  const { data: states } = await admin
-    .from('admin_notification_state')
-    .select('notification_id, done_at')
-    .in('notification_id', top.map(n => n.id))
-  const doneMap = new Map((states ?? []).map((s: { notification_id: string; done_at: string }) => [s.notification_id, s.done_at]))
-
-  return NextResponse.json({
-    notifications: top.map(n => ({ ...n, doneAt: doneMap.get(n.id) ?? null })),
-  })
+  return NextResponse.json({ notifications: notifications.slice(0, 100) })
 }
 
 export async function PATCH(request: Request) {
@@ -224,23 +140,6 @@ export async function PATCH(request: Request) {
 
   const { id, action } = await request.json()
   if (!id || !action) return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 })
-
-  // Stato "effettuata": vale per qualunque tipo di notifica
-  if (action === 'mark_done') {
-    const { error } = await createAdminClient()
-      .from('admin_notification_state')
-      .upsert({ notification_id: id, done_by: adminUser.id, done_at: new Date().toISOString() }, { onConflict: 'notification_id' })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true })
-  }
-  if (action === 'undo_done') {
-    const { error } = await createAdminClient()
-      .from('admin_notification_state')
-      .delete()
-      .eq('notification_id', id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true })
-  }
 
   // Azioni sugli acquisti (mark_processed, cancel): solo shop-
   if (!id.startsWith('shop-')) return NextResponse.json({ error: 'Azione non valida per questo tipo di notifica' }, { status: 400 })
