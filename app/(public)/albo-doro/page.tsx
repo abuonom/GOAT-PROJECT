@@ -88,7 +88,6 @@ export default async function AlboDoroPage() {
             title="ERNESTO CUP"
             rows={ernestoRows}
             columns={[
-              { label: 'V–S', value: r => `${r.wins}–${r.losses}`, highlight: () => false },
               { label: 'Titoli', value: r => r.ernesto_titles, highlight: r => r.ernesto_titles > 0 },
             ]}
           />

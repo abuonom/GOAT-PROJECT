@@ -96,20 +96,33 @@ export async function POST(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error }, { status })
 
   const body = await req.json()
-  if (body.action !== 'upgrade') {
+  const isBadge = body.action === 'badge'
+  if (body.action !== 'upgrade' && !isBadge) {
     return NextResponse.json({ error: 'Azione non valida' }, { status: 400 })
   }
 
-  const { playerSlug, attributeKey, fromValue, toValue } = body
+  const { playerSlug, attributeKey, fromValue, toValue, badgeName } = body
   if (!playerSlug || !attributeKey) {
     return NextResponse.json({ error: 'playerSlug e attributeKey obbligatori' }, { status: 400 })
   }
-  if (!Number.isInteger(fromValue) || fromValue < 0 || fromValue > 98) {
-    return NextResponse.json({ error: 'Valore di partenza non valido' }, { status: 400 })
-  }
-  // Regola: solo upgrade +1
-  if (toValue !== fromValue + 1) {
-    return NextResponse.json({ error: 'Sono consentiti solo upgrade di +1' }, { status: 400 })
+
+  let oldValue: number | null = null
+  let newValue: number | null = null
+  if (isBadge) {
+    // Badge Bronzo → Argento: nome del cartellino obbligatorio, nessun valore numerico
+    if (typeof badgeName !== 'string' || badgeName.trim().length === 0) {
+      return NextResponse.json({ error: 'Scrivi il nome del cartellino da aumentare' }, { status: 400 })
+    }
+  } else {
+    if (!Number.isInteger(fromValue) || fromValue < 0 || fromValue > 98) {
+      return NextResponse.json({ error: 'Valore di partenza non valido' }, { status: 400 })
+    }
+    // Regola: solo upgrade +1
+    if (toValue !== fromValue + 1) {
+      return NextResponse.json({ error: 'Sono consentiti solo upgrade di +1' }, { status: 400 })
+    }
+    oldValue = fromValue
+    newValue = toValue
   }
 
   const supabase = await createClient()
@@ -136,7 +149,7 @@ export async function POST(req: NextRequest) {
 
   const { data: gcCost, error: costErr } = await supabase.rpc('calculate_upgrade_cost', {
     p_attribute_key: attributeKey,
-    p_current_value: fromValue,
+    p_current_value: isBadge ? 0 : oldValue,
   })
   if (costErr) return NextResponse.json({ error: costErr.message }, { status: 400 })
   if (!gcCost) return NextResponse.json({ error: 'Impossibile calcolare il costo' }, { status: 400 })
@@ -157,9 +170,12 @@ export async function POST(req: NextRequest) {
       franchise_id: ctx.franchiseId,
       player_slug: playerSlug,
       attribute_key: attributeKey,
-      old_value: fromValue,
-      new_value: toValue,
+      old_value: oldValue,
+      new_value: newValue,
       gc_cost: gcCost,
+      badge_name: isBadge ? badgeName.trim() : null,
+      old_tier: isBadge ? 'Bronze' : null,
+      new_tier: isBadge ? 'Silver' : null,
     })
     .select('id')
     .single()
@@ -171,8 +187,8 @@ export async function POST(req: NextRequest) {
     user_id: ctx.userId,
     player_slug: playerSlug,
     attribute_key: attributeKey,
-    old_value: fromValue,
-    new_value: toValue,
+    old_value: oldValue,
+    new_value: newValue,
     gc_cost: gcCost,
   })
   if (upErr) {
@@ -192,7 +208,9 @@ export async function POST(req: NextRequest) {
     amount: -gcCost,
     type: 'spent',
     reference_id: tx.id,
-    note: `GM Shop: ${attributeKey} su ${playerSlug} (${fromValue}→${toValue})`,
+    note: isBadge
+      ? `GM Shop: badge "${badgeName.trim()}" Bronzo→Argento su ${playerSlug}`
+      : `GM Shop: ${attributeKey} su ${playerSlug} (${oldValue}→${newValue})`,
     created_by: ctx.userId,
   })
   if (ledgerErr) {

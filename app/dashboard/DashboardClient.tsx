@@ -159,6 +159,9 @@ export default function DashboardClient({ profile, userEmail }: Props) {
             { label: 'Player List', icon: '📋', path: '/draft-builder' },
             { label: 'Draft Class', icon: '🎓', path: '/draft' },
             { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
+            { label: 'Regolamento', icon: '📜', path: '/regolamento' },
+            { label: 'Roster attuali', icon: '🏀', path: '/roster-attuali' },
+            { label: 'Albo d\'oro', icon: '🥇', path: '/albo-doro' },
           ].map(item => (
             <button key={item.label} onClick={() => router.push(item.path)}
               className="rounded-xl p-5 text-left"

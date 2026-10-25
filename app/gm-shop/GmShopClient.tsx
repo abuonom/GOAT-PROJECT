@@ -19,7 +19,7 @@ interface RosterResponse {
   balance: number
 }
 
-type Step = 'player' | 'attribute' | 'values' | 'confirm'
+type Step = 'player' | 'attribute' | 'values' | 'badge' | 'confirm'
 
 const CATEGORIES = ['Tiro', 'Finishing', 'Playmaking', 'Difesa', 'Atletismo', 'Badge'] as const
 
@@ -44,6 +44,7 @@ export default function GmShopClient() {
   const [fromValue, setFromValue] = useState<number>(70)
   const [toValue, setToValue] = useState<number>(71)
   const [attrTab, setAttrTab] = useState<(typeof CATEGORIES)[number]>('Tiro')
+  const [badgeName, setBadgeName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
@@ -100,7 +101,8 @@ export default function GmShopClient() {
   function pickAttribute(a: GmShopAttribute) {
     setAttr(a)
     if (a.is_badge_upgrade) {
-      setStep('confirm')
+      setBadgeName('')
+      setStep('badge')
       return
     }
     setFromValue(70)
@@ -118,7 +120,7 @@ export default function GmShopClient() {
     if (!selected || !attr) return
     setSubmitting(true)
     const body = attr.is_badge_upgrade
-      ? { action: 'upgrade', playerSlug: selected.slug, attributeKey: attr.attribute_key, fromValue: 0, toValue: 1 }
+      ? { action: 'badge', playerSlug: selected.slug, attributeKey: attr.attribute_key, badgeName: badgeName.trim() }
       : { action: 'upgrade', playerSlug: selected.slug, attributeKey: attr.attribute_key, fromValue, toValue: fromValue + 1 }
 
     const res = await fetch('/api/gm-roster', {
@@ -276,13 +278,43 @@ export default function GmShopClient() {
           </section>
         )}
 
+        {step === 'badge' && selected && attr && (
+          <section className="space-y-6">
+            <h2 className="font-display text-lg font-bold tracking-wide">3. Quale cartellino vuoi aumentare?</h2>
+            <p className="text-sm" style={{ color: 'var(--text-sec)' }}>
+              {selected.name} · {attr.label_it}. Scrivi il nome del badge da Bronzo ad Argento.
+            </p>
+            <div className="rounded-xl p-5 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <input
+                placeholder="Es. Set and Fire"
+                value={badgeName}
+                onChange={e => setBadgeName(e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+              />
+              <p className="text-[11px]" style={{ color: 'var(--text-dim)' }}>Costo fisso per i badge: 10 GC.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setStep('attribute')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
+              <button
+                onClick={() => setStep('confirm')}
+                disabled={badgeName.trim().length === 0}
+                className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50"
+                style={{ background: 'var(--gold)', color: '#000' }}
+              >Continua</button>
+            </div>
+          </section>
+        )}
+
         {step === 'confirm' && selected && attr && (
           <section className="space-y-6">
             <h2 className="font-display text-lg font-bold tracking-wide">4. Conferma</h2>
             <div className="rounded-xl p-5 space-y-2 text-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div>Giocatore: <span className="font-semibold">{selected.name}</span></div>
               <div>Attributo: <span className="font-semibold">{attr.label_it}</span></div>
-              {!attr.is_badge_upgrade && <div>Da {fromValue} a {fromValue + 1}</div>}
+              {attr.is_badge_upgrade
+                ? <div>Cartellino: <span className="font-semibold">{badgeName.trim()}</span> (Bronzo → Argento)</div>
+                : <div>Da {fromValue} a {fromValue + 1}</div>}
               <div>Costo: <span className="font-bold" style={{ color: 'var(--gold)' }}>{previewCost} GC</span></div>
               <div style={{ color: 'var(--text-sec)' }}>Saldo dopo: {roster.balance - (previewCost ?? 0)} GC</div>
               {!canAfford && (
@@ -293,7 +325,7 @@ export default function GmShopClient() {
               L'upgrade viene validato dall'admin in game. Dichiarare un valore non corretto comporta penalità.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setStep(attr.is_badge_upgrade ? 'attribute' : 'values')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
+              <button onClick={() => setStep(attr.is_badge_upgrade ? 'badge' : 'values')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
               <button
                 onClick={submit}
                 disabled={submitting || !canAfford}
@@ -309,7 +341,7 @@ export default function GmShopClient() {
 }
 
 function Steps({ current }: { current: Step }) {
-  const order: Step[] = ['player', 'attribute', 'values', 'confirm']
+  const order: Step[] = ['player', 'attribute', 'values', 'badge', 'confirm']
   const idx = order.indexOf(current)
   return (
     <div className="flex gap-2">
