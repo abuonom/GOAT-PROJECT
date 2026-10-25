@@ -250,7 +250,7 @@ export default function GmShopClient() {
           <section className="space-y-6">
             <h2 className="font-display text-lg font-bold tracking-wide">3. Valore attuale e valore finale</h2>
             <p className="text-sm" style={{ color: 'var(--text-sec)' }}>
-              {selected.name} · {attr.label_it}. Dichiara il valore attuale nel gioco: l'upgrade è sempre +1.
+              {selected.name} · {attr.label_it}. Guarda il valore attuale del giocatore sulla play e scrivilo qui: l'upgrade è sempre +1. I valori del database non vengono usati.
             </p>
 
             <div className="rounded-xl p-5 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

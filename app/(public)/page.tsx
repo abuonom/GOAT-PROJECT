@@ -29,6 +29,27 @@ export default function Home() {
         GOAT LEAGUE, UNA DELLE PRIME LEGHE ITALIANE DI NBA2K.
       </p>
 
+      <p className="font-display text-lg sm:text-xl font-bold tracking-widest mt-4" style={{ color: 'var(--gold)' }}>
+        LEGA ONLINE A 30 FRANCHIGIE DAL 2019
+      </p>
+
+      <div className="mt-10 grid grid-cols-3 gap-3 sm:gap-6 w-full max-w-xl">
+        {[
+          { value: '30', label: 'GM' },
+          { value: '30', label: 'FRANCHIGIE' },
+          { value: '1', label: 'LEGA' },
+        ].map(s => (
+          <div
+            key={s.label}
+            className="rounded-xl py-5"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <div className="font-display text-4xl sm:text-5xl font-black" style={{ color: 'var(--gold)' }}>{s.value}</div>
+            <div className="text-[10px] sm:text-xs tracking-[0.3em] mt-1" style={{ color: 'var(--text-sec)' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
       <p className="mt-4 text-sm max-w-md" style={{ color: 'var(--text-sec)' }}>
         Consulta il regolamento e i roster attuali. Per gestire la tua squadra, accedi.
       </p>

@@ -1,19 +1,29 @@
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
-const tabs = [
+const publicTabs = [
   { label: 'HOME', href: '/' },
   { label: 'REGOLAMENTO', href: '/regolamento' },
   { label: 'ROSTER ATTUALI', href: '/roster-attuali' },
   { label: 'ALBO D\'ORO', href: '/albo-doro' },
-  { label: 'LOGIN', href: '/login' },
 ]
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+// Per chi non è loggato: la barra completa, con LOGIN.
+// Per chi è loggato: solo le pagine pubbliche, senza HOME/LOGIN ridondanti.
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = !!user
+
+  const tabs = isLoggedIn
+    ? publicTabs.filter(t => t.href !== '/')
+    : [...publicTabs, { label: 'LOGIN', href: '/login' }]
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <header className="border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
         <div className="max-w-5xl mx-auto px-4 pt-6 pb-0">
-          <Link href="/" className="block text-center">
+          <Link href={isLoggedIn ? '/dashboard' : '/'} className="block text-center">
             <h1 className="font-display text-3xl font-black tracking-widest" style={{ color: 'var(--gold)' }}>GOAT LEAGUE</h1>
             <p className="font-display text-lg font-bold tracking-wide" style={{ color: 'var(--text)' }}>COMPANION</p>
           </Link>

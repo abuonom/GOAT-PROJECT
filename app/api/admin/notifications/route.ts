@@ -76,7 +76,7 @@ export async function GET() {
   // 2. GM Shop purchases — fetch player name+team for each slug
   const { data: purchases } = await admin
     .from('gm_shop_transactions')
-    .select('id, user_id, player_slug, attribute_key, gc_cost, badge_name, created_at, admin_processed_at, processed_by, cancelled_at')
+    .select('id, user_id, player_slug, attribute_key, old_value, new_value, gc_cost, badge_name, created_at, admin_processed_at, processed_by, cancelled_at')
     .eq('season_id', season.id)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -108,9 +108,13 @@ export async function GET() {
       ? `Badge ${tx.badge_name} Bronze→Silver`
       : (attrMap[tx.attribute_key] ?? tx.attribute_key)
     const playerInfo = playerInfoMap[tx.player_slug]
-    const playerDisplay = playerInfo
-      ? `${playerInfo.name}${playerInfo.team ? ` · ${playerInfo.team}` : ''}`
-      : tx.player_slug.replace(/-/g, ' ')
+    const playerName = playerInfo?.name ?? tx.player_slug.replace(/-/g, ' ')
+    // Squadra del gioco (non quella reale): mostrata solo se presente
+    const gameTeam = playerInfo?.team && playerInfo.team !== 'Free Agency' ? playerInfo.team : null
+    const change = tx.badge_name
+      ? `${tx.badge_name}: Bronzo → Argento`
+      : `da ${tx.old_value} a ${tx.new_value}`
+    const playerDisplay = [playerName, gameTeam].filter(Boolean).join(' · ')
 
     notifications.push({
       id: `shop-${tx.id}`,
@@ -120,7 +124,7 @@ export async function GET() {
       franchiseName: f.name ?? null,
       franchiseAbbr: f.abbr ?? null,
       title: `Upgrade: ${attrLabel}`,
-      detail: playerDisplay,
+      detail: `${playerDisplay} — ${change}`,
       amount: -tx.gc_cost,
       createdAt: tx.created_at,
       processedAt: tx.admin_processed_at ?? null,
