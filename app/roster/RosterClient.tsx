@@ -35,26 +35,11 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
 
   const reload = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/roster?type=mine')
+    const res = await fetch('/api/roster/full')
     if (!res.ok) { setLoading(false); return }
-    const data: RosterMembership[] = await res.json()
-    setMemberships(data)
-
-    // Fetch player data for each slug
-    if (data.length > 0) {
-      const slugs = data.map(m => m.player_slug)
-      const playerMap: Record<string, Player> = {}
-      await Promise.all(
-        slugs.map(async slug => {
-          const r = await fetch(`/api/players/${slug}`)
-          if (r.ok) {
-            const json = await r.json()
-            if (json.data) playerMap[slug] = json.data
-          }
-        })
-      )
-      setPlayers(playerMap)
-    }
+    const json = await res.json()
+    setMemberships(json.memberships ?? [])
+    setPlayers(json.players ?? {})
     setLoading(false)
   }, [])
 
