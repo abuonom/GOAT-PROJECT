@@ -1,10 +1,13 @@
 -- Migration 017: GM Shop su roster stagionale dichiarato dal GM
 -- Il GM dichiara valore attuale e valore finale (solo +1 per upgrade).
 -- Il roster del GM è per stagione; cambia durante l'anno, verificato dall'admin.
+-- I rookie nascono nel gioco e non sono in nba2kapi: il GM li inserisce a mano.
 -- Le regole di costo restano in lib/gm-shop/rules.ts (preview) e nel calcolo server.
 
 -- 1) Roster stagionale del GM: giocatori che possiede nella stagione
-CREATE TYPE gm_player_origin AS ENUM ('list', 'draft', 'manual');
+-- 'list'   = giocatore preso dalla lista esistente
+-- 'manual' = inserito a mano dal GM (incluso rookie creato nel gioco)
+CREATE TYPE gm_player_origin AS ENUM ('list', 'manual');
 
 CREATE TABLE gm_season_roster (
   id            uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,7 +27,7 @@ CREATE UNIQUE INDEX gm_season_roster_active_unique
   ON gm_season_roster(season_id, player_slug)
   WHERE removed_at IS NULL;
 
--- 2) Giocatori inseriti a mano (non presenti nella lista)
+-- 2) Giocatori inseriti a mano (rookie creati nel gioco o giocatori non in lista)
 CREATE TABLE gm_manual_players (
   id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   season_id     uuid        NOT NULL REFERENCES seasons(id),
@@ -32,6 +35,7 @@ CREATE TABLE gm_manual_players (
   name          text        NOT NULL,
   overall       integer     NOT NULL CHECK (overall BETWEEN 40 AND 99),
   positions     text[]      NOT NULL DEFAULT '{}',
+  is_rookie     boolean     NOT NULL DEFAULT false,
   added_by      uuid        NOT NULL REFERENCES auth.users(id),
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE(season_id, slug)
