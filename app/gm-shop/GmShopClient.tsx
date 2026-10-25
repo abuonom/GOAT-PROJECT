@@ -7,11 +7,9 @@ import { calculateUpgradeCost, GM_SHOP_RULES } from '@/lib/gm-shop/rules'
 
 interface RosterEntry {
   slug: string
-  origin: 'list' | 'manual'
   name: string
   overall: number
   positions: string[]
-  isRookie: boolean
   upgradeCount: number
   upgrades: { attribute_key: string; old_value: number | null; new_value: number | null; gc_cost: number }[]
 }
@@ -184,13 +182,15 @@ export default function GmShopClient() {
               >
                 <span className="font-display text-2xl font-black w-12" style={{ color: ovrColor(p.overall) }}>{p.overall}</span>
                 <span className="flex-1">
-                  <span className="block font-semibold">{p.name}{p.isRookie && <span className="ml-2 text-[10px] tracking-wider" style={{ color: 'var(--gold)' }}>ROOKIE</span>}</span>
+                  <span className="block font-semibold">{p.name}</span>
                   <span className="block text-xs" style={{ color: 'var(--text-sec)' }}>{p.positions.join(' / ')}</span>
                 </span>
                 <span className="text-xs" style={{ color: 'var(--text-sec)' }}>{p.upgradeCount}/{GM_SHOP_RULES.MAX_UPGRADES_PER_PLAYER_PER_SEASON}</span>
               </button>
             ))}
-            <AddPlayerForm onAdded={async () => { await loadRoster(); showToast('Giocatore aggiunto') }} onError={msg => showToast(msg, false)} />
+            <button onClick={() => router.push('/roster')} className="w-full rounded-xl py-3 text-sm" style={{ border: '1px dashed var(--border2)', color: 'var(--gold)' }}>
+              Gestisci il roster (aggiungi giocatori e rookie) →
+            </button>
           </section>
         )}
 
@@ -311,57 +311,6 @@ function Steps({ current }: { current: Step }) {
       {order.map((s, i) => (
         <span key={s} className="flex-1 h-1 rounded" style={{ background: i <= idx ? 'var(--gold)' : 'var(--border)' }} />
       ))}
-    </div>
-  )
-}
-
-function AddPlayerForm({ onAdded, onError }: { onAdded: () => void; onError: (m: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [overall, setOverall] = useState('')
-  const [positions, setPositions] = useState('')
-  const [isRookie, setIsRookie] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    setBusy(true)
-    const res = await fetch('/api/gm-roster', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'add-manual',
-        name,
-        overall: Number(overall),
-        positions: positions.split(',').map(s => s.trim()).filter(Boolean),
-        isRookie,
-      }),
-    })
-    const json = await res.json()
-    setBusy(false)
-    if (!res.ok) { onError(json.error ?? 'Errore'); return }
-    setName(''); setOverall(''); setPositions(''); setIsRookie(false); setOpen(false)
-    onAdded()
-  }
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="w-full rounded-xl py-3 text-sm" style={{ border: '1px dashed var(--border2)', color: 'var(--text-sec)' }}>
-        + Aggiungi giocatore non in lista (es. rookie del gioco)
-      </button>
-    )
-  }
-
-  const inputStyle = { background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }
-  return (
-    <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <input placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
-      <input placeholder="Overall (40–99)" type="number" value={overall} onChange={e => setOverall(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
-      <input placeholder="Posizioni (es. PG, SG)" value={positions} onChange={e => setPositions(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={inputStyle} />
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isRookie} onChange={e => setIsRookie(e.target.checked)} /> È un rookie</label>
-      <div className="flex gap-3">
-        <button onClick={() => setOpen(false)} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Annulla</button>
-        <button onClick={submit} disabled={busy || !name || !overall} className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#000' }}>Aggiungi</button>
-      </div>
     </div>
   )
 }
