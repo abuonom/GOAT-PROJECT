@@ -104,13 +104,6 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
               )}
             </div>
           </div>
-          <button
-            onClick={() => router.push('/draft-builder')}
-            className="text-xs font-semibold px-3 py-1.5 rounded"
-            style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}
-          >
-            + Aggiungi giocatori
-          </button>
         </div>
       </header>
 
@@ -129,10 +122,19 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
         )}
 
         {hasFranchise && (
-          <AddRookieForm
-            onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
-            onError={msg => showToast(msg, false)}
-          />
+          <div className="space-y-3">
+            <AddRookieForm
+              onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
+              onError={msg => showToast(msg, false)}
+            />
+            <button
+              onClick={() => router.push('/draft-builder')}
+              className="w-full rounded-xl py-3 text-sm"
+              style={{ border: '1px dashed var(--border2)', color: 'var(--gold)' }}
+            >
+              + Aggiungi giocatori
+            </button>
+          </div>
         )}
 
         {/* No franchise assigned */}
