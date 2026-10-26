@@ -12,7 +12,7 @@ interface Props {
 
 const CONF_COLORS: Record<string, string> = { East: '#60a5fa', West: '#f87171' }
 
-export default function DashboardClient({ profile, userEmail }: Props) {
+export default function DashboardClient({ profile, userEmail, isSuperAdmin }: Props & { isSuperAdmin: boolean }) {
   const router = useRouter()
 
   // Franchise state
@@ -156,9 +156,11 @@ export default function DashboardClient({ profile, userEmail }: Props) {
             { label: 'Il mio Roster', icon: '👥', path: '/roster' },
             { label: 'GM Shop', icon: '🛒', path: '/gm-shop' },
             { label: 'GM Credits', icon: '💎', path: '/gm-credits' },
-            { label: 'Player List', icon: '📋', path: '/draft-builder' },
-            { label: 'Draft Class', icon: '🎓', path: '/draft' },
-            { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
+            ...(isSuperAdmin ? [
+              { label: 'Player List', icon: '📋', path: '/draft-builder' },
+              { label: 'Draft Class', icon: '🎓', path: '/draft' },
+              { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
+            ] : []),
             { label: 'Regolamento', icon: '📜', path: '/regolamento' },
             { label: 'Roster attuali', icon: '🏀', path: '/roster-attuali' },
             { label: 'Albo d\'oro', icon: '🥇', path: '/albo-doro' },
