@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { RosterMembership } from '@/types/league'
 import type { Player } from '@/types/nba'
 import AddRookieForm from './AddRookieForm'
+import PlayerSearch from './PlayerSearch'
 
 interface Props {
   isAdmin: boolean
@@ -103,18 +104,16 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
         )}
 
         {hasFranchise && (
-          <div className="space-y-3">
+          <div className="space-y-5">
+            <PlayerSearch
+              rosterSlugs={memberships.map(m => m.player_slug)}
+              onAdded={reload}
+              onMessage={(msg, ok) => showToast(msg, ok)}
+            />
             <AddRookieForm
               onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
               onError={msg => showToast(msg, false)}
             />
-            <button
-              onClick={() => router.push('/draft-builder')}
-              className="w-full rounded-xl py-3 text-sm"
-              style={{ border: '1px dashed var(--border2)', color: 'var(--gold)' }}
-            >
-              + Aggiungi giocatori
-            </button>
           </div>
         )}
 
