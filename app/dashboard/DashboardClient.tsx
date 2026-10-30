@@ -91,11 +91,6 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin }: Pr
             🏀 GOAT LEAGUE
           </span>
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/draft-builder')}
-              className="text-xs font-semibold px-3 py-1.5 rounded"
-              style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
-              Player List
-            </button>
             {profile?.role === 'admin' && (
               <button onClick={() => router.push('/admin')}
                 className="text-xs font-semibold px-3 py-1.5 rounded"
@@ -150,31 +145,65 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin }: Pr
           </div>
         )}
 
-        {/* Quick actions grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { label: 'Il mio Roster', icon: '👥', path: '/roster' },
-            { label: 'GM Shop', icon: '🛒', path: '/gm-shop' },
-            { label: 'GM Credits', icon: '💎', path: '/gm-credits' },
-            ...(isSuperAdmin ? [
-              { label: 'Player List', icon: '📋', path: '/draft-builder' },
-              { label: 'Draft Class', icon: '🎓', path: '/draft' },
-              { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
-            ] : []),
-            { label: 'Regolamento', icon: '📜', path: '/regolamento' },
-            { label: 'Roster attuali', icon: '🏀', path: '/roster-attuali' },
-            { label: 'Albo d\'oro', icon: '🥇', path: '/albo-doro' },
-          ].map(item => (
-            <button key={item.label} onClick={() => router.push(item.path)}
-              className="rounded-xl p-5 text-left"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-              <div className="text-2xl mb-2">{item.icon}</div>
-              <div className="font-display font-black text-sm tracking-wide" style={{ color: 'var(--text)' }}>
-                {item.label}
-              </div>
-            </button>
-          ))}
-        </div>
+        {/* Azioni del GM */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--text-sec)' }}>IL TUO TEAM</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Il mio roster', sub: 'Giocatori e rookie', icon: '👥', path: '/roster' },
+              { label: 'GM Shop', sub: 'Potenzia i tuoi giocatori', icon: '🛒', path: '/gm-shop' },
+            ].map(item => (
+              <button key={item.label} onClick={() => router.push(item.path)}
+                className="rounded-xl p-5 text-left"
+                style={{ background: 'var(--surface)', border: '1px solid var(--gold-dim)', cursor: 'pointer' }}>
+                <div className="text-2xl mb-2">{item.icon}</div>
+                <div className="font-display font-black text-base tracking-wide" style={{ color: 'var(--text)' }}>{item.label}</div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-sec)' }}>{item.sub}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Informazioni pubbliche */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--text-sec)' }}>LEGA</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Regolamento', icon: '📜', path: '/regolamento' },
+              { label: 'Roster attuali', icon: '🏀', path: '/roster-attuali' },
+              { label: "Albo d'oro", icon: '🥇', path: '/albo-doro' },
+            ].map(item => (
+              <button key={item.label} onClick={() => router.push(item.path)}
+                className="rounded-xl p-4 text-left"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                <div className="text-xl mb-1">{item.icon}</div>
+                <div className="font-display font-bold text-sm tracking-wide" style={{ color: 'var(--text)' }}>{item.label}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Superadmin: gruppo separato */}
+        {isSuperAdmin && (
+          <section className="space-y-3">
+            <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--gold)' }}>SUPERADMIN</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Player List', icon: '📋', path: '/draft-builder' },
+                { label: 'Draft Class', icon: '🎓', path: '/draft' },
+                { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
+                { label: 'Backoffice', icon: '⚙️', path: '/admin' },
+              ].map(item => (
+                <button key={item.label} onClick={() => router.push(item.path)}
+                  className="rounded-xl p-4 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                  <div className="text-xl mb-1">{item.icon}</div>
+                  <div className="font-display font-bold text-sm tracking-wide" style={{ color: 'var(--text)' }}>{item.label}</div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Franchise picker modal */}

@@ -7,6 +7,7 @@ import type { RosterMembership } from '@/types/league'
 import type { Player } from '@/types/nba'
 import AddRookieForm from './AddRookieForm'
 import PlayerSearch from './PlayerSearch'
+import GcBadge from '@/components/GcBadge'
 
 interface Props {
   isAdmin: boolean
@@ -86,6 +87,7 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
               )}
             </div>
           </div>
+          <GcBadge />
         </div>
       </header>
 
