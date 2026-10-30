@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { isShopOpen } from '@/lib/league/shop-state'
 
 // Il roster del GM è quello di roster_memberships (la stessa pagina /roster).
 // GET  → roster della franchigia + upgrade fatti + saldo GC
@@ -94,6 +95,11 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { ctx, error, status } = await getContext()
   if (!ctx) return NextResponse.json({ error }, { status })
+
+  // Shop chiuso dal superadmin: nessun acquisto, nessun addebito
+  if (!(await isShopOpen())) {
+    return NextResponse.json({ error: 'Lo shop è chiuso al momento' }, { status: 403 })
+  }
 
   const body = await req.json()
   const isBadge = body.action === 'badge'

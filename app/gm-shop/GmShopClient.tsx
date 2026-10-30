@@ -31,8 +31,12 @@ function ovrColor(v: number) {
   return 'var(--text-sec)'
 }
 
-export default function GmShopClient() {
+interface Props { isSuperAdmin: boolean }
+
+export default function GmShopClient({ isSuperAdmin }: Props) {
   const router = useRouter()
+  const [shopOpen, setShopOpen] = useState(true)
+  const [togglingShop, setTogglingShop] = useState(false)
 
   const [roster, setRoster] = useState<RosterResponse | null>(null)
   const [catalog, setCatalog] = useState<GmShopAttribute[]>([])
@@ -58,6 +62,24 @@ export default function GmShopClient() {
     if (res.status === 401) { router.push('/login'); return }
     setRoster(await res.json())
   }, [router])
+
+  useEffect(() => {
+    fetch('/api/shop/state').then(r => r.json()).then(j => { if (typeof j.open === 'boolean') setShopOpen(j.open) })
+  }, [])
+
+  async function toggleShop() {
+    setTogglingShop(true)
+    const res = await fetch('/api/shop/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ open: !shopOpen }),
+    })
+    const json = await res.json()
+    setTogglingShop(false)
+    if (json.error) { showToast(json.error, false); return }
+    setShopOpen(json.open)
+    showToast(json.open ? 'Shop aperto' : 'Shop chiuso')
+  }
 
   useEffect(() => {
     Promise.all([
@@ -159,6 +181,26 @@ export default function GmShopClient() {
         <h1 className="font-display text-xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>GM SHOP</h1>
         <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
       </header>
+
+      {!shopOpen && (
+        <div className="px-4 py-3 text-sm text-center" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', borderBottom: '1px solid rgba(239,68,68,0.3)' }}>
+          Lo shop è chiuso: non puoi fare acquisti al momento.
+        </div>
+      )}
+
+      {isSuperAdmin && (
+        <div className="px-4 py-3 flex items-center justify-center gap-3">
+          <span className="text-xs" style={{ color: 'var(--text-sec)' }}>Superadmin · shop {shopOpen ? 'aperto' : 'chiuso'}</span>
+          <button
+            onClick={toggleShop}
+            disabled={togglingShop}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50"
+            style={{ background: shopOpen ? 'rgba(239,68,68,0.12)' : 'rgba(74,222,128,0.12)', color: shopOpen ? '#f87171' : '#4ade80', border: '1px solid var(--border)' }}
+          >
+            {togglingShop ? '…' : shopOpen ? 'Chiudi shop' : 'Apri shop'}
+          </button>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         <Steps current={step} />
@@ -328,7 +370,7 @@ export default function GmShopClient() {
               <button onClick={() => setStep(attr.is_badge_upgrade ? 'badge' : 'values')} className="flex-1 rounded-lg py-2 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--text-sec)' }}>Indietro</button>
               <button
                 onClick={submit}
-                disabled={submitting || !canAfford}
+                disabled={submitting || !canAfford || !shopOpen}
                 className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-50"
                 style={{ background: 'var(--gold)', color: '#000' }}
               >{submitting ? 'Invio…' : 'Conferma upgrade'}</button>

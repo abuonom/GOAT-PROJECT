@@ -13,5 +13,6 @@ export default async function GmShopPage() {
     .eq('id', user.id)
     .single()
 
-  return <GmShopClient />
+  const { isSuperAdmin } = await import('@/lib/league/shop-state')
+  return <GmShopClient isSuperAdmin={await isSuperAdmin()} />
 }
