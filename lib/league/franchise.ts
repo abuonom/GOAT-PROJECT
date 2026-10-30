@@ -65,5 +65,23 @@ export async function claimFranchise(franchiseId: string): Promise<{ error?: str
     if (error.code === '23505') return { error: 'Questa franchigia è già stata scelta da un altro GM' }
     return { error: error.message }
   }
+
+  // Allinea subito i GC: il GM riceve quelli della franchigia (partite già inserite)
+  const { data: gcTotal } = await admin.rpc('franchise_gc_earned', {
+    p_franchise_id: franchiseId,
+    p_season_id: season.id,
+  })
+  const { data: balance } = await admin.rpc('get_gc_balance', { p_user_id: user.id, p_season_id: season.id })
+  const delta = (gcTotal ?? 0) - (balance ?? 0)
+  if (delta !== 0) {
+    await admin.from('gm_credit_ledger').insert({
+      season_id: season.id,
+      user_id: user.id,
+      amount: delta,
+      type: 'adjustment',
+      note: 'Allineamento GC alla presa della franchigia',
+      created_by: user.id,
+    })
+  }
   return {}
 }
