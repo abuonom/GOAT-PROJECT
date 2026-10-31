@@ -1,0 +1,16 @@
+// Sul sito pubblicato, da GM di test: la Player List spenta non deve essere raggiungibile né visibile.
+import { chromium } from 'playwright'
+const [base, email, password] = process.argv.slice(2)
+const browser = await chromium.launch()
+const page = await browser.newPage()
+await page.goto(base + '/login', { waitUntil: 'networkidle', timeout: 90000 })
+await page.fill('input[type="email"]', email)
+await page.fill('input[type="password"]', password)
+await page.getByRole('button', { name: /accedi/i }).last().click()
+await page.waitForURL(u => !u.toString().includes('/login'), { timeout: 60000 })
+const flag = await page.evaluate(async () => (await (await fetch('/api/features/player_list')).json()).enabled)
+const dash = await page.goto(base + '/dashboard', { waitUntil: 'networkidle', timeout: 90000 })
+const dashText = await page.textContent('body')
+const pl = await page.evaluate(async b => (await fetch(b + '/draft-builder', { redirect: 'manual' })).status, base)
+console.log(JSON.stringify({ flagEnabled: flag, dashboardShowsPlayerList: dashText.includes('Player List'), playerListStatus: pl }))
+await browser.close()
