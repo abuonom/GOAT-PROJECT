@@ -111,10 +111,12 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
               rosterSlugs={memberships.map(m => m.player_slug)}
               onAdded={reload}
               onMessage={(msg, ok) => showToast(msg, ok)}
-            />
-            <AddRookieForm
-              onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
-              onError={msg => showToast(msg, false)}
+              rookieSlot={
+                <AddRookieForm
+                  onAdded={() => { reload(); showToast('Rookie aggiunto al roster') }}
+                  onError={msg => showToast(msg, false)}
+                />
+              }
             />
           </div>
         )}
@@ -148,15 +150,8 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
                 NESSUN GIOCATORE
               </p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>
-                Vai alla Player List per aggiungere giocatori al tuo roster.
+                Cerca un giocatore qui sopra per aggiungerlo al tuo roster.
               </p>
-              <button
-                onClick={() => router.push('/draft-builder')}
-                className="mt-4 font-display font-black tracking-wide text-sm px-5 py-2.5 rounded-xl"
-                style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}
-              >
-                APRI PLAYER LIST
-              </button>
             </div>
           )
         ) : (

@@ -17,9 +17,10 @@ interface Props {
   rosterSlugs: string[]
   onAdded: () => void
   onMessage: (msg: string, ok: boolean) => void
+  rookieSlot?: React.ReactNode
 }
 
-export default function PlayerSearch({ rosterSlugs, onAdded, onMessage }: Props) {
+export default function PlayerSearch({ rosterSlugs, onAdded, onMessage, rookieSlot }: Props) {
   const [all, setAll] = useState<Candidate[]>([])
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -62,6 +63,7 @@ export default function PlayerSearch({ rosterSlugs, onAdded, onMessage }: Props)
         className="w-full rounded-lg px-3 py-2 text-sm"
         style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }}
       />
+      {rookieSlot}
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
         {results.slice(0, limit).map(p => (
           <div key={p.slug} className="flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>

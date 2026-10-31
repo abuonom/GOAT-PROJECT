@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Franchise } from '@/types/league'
+import FeatureToggle from '@/components/FeatureToggle'
 
 interface Props {
   profile: Profile | null
@@ -12,7 +13,7 @@ interface Props {
 
 const CONF_COLORS: Record<string, string> = { East: '#60a5fa', West: '#f87171' }
 
-export default function DashboardClient({ profile, userEmail, isSuperAdmin }: Props & { isSuperAdmin: boolean }) {
+export default function DashboardClient({ profile, userEmail, isSuperAdmin, playerListEnabled }: Props & { isSuperAdmin: boolean; playerListEnabled: boolean }) {
   const router = useRouter()
 
   // Franchise state
@@ -187,9 +188,10 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin }: Pr
         {isSuperAdmin && (
           <section className="space-y-3">
             <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--gold)' }}>SUPERADMIN</h2>
+            <FeatureToggle label="Player List (draft NBA)" flagKey="player_list" initial={playerListEnabled} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Player List', icon: '📋', path: '/draft-builder' },
+                ...(playerListEnabled ? [{ label: 'Player List', icon: '📋', path: '/draft-builder' }] : []),
                 { label: 'Draft Class', icon: '🎓', path: '/draft' },
                 { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
                 { label: 'Backoffice', icon: '⚙️', path: '/admin' },
