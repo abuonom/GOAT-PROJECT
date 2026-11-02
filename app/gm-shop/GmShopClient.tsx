@@ -18,6 +18,17 @@ interface RosterEntry {
 interface RosterResponse {
   roster: RosterEntry[]
   balance: number
+  gamesPlayed: number
+}
+
+// Traguardi di partite → GC totali della stagione (come in GM Credits)
+const GC_MILESTONES = [5, 10, 20, 30, 40, 50, 60, 70, 82]
+const GC_TOTALS = [1, 2, 4, 6, 9, 12, 16, 20, 25]
+
+function nextMilestone(gamesPlayed: number) {
+  const idx = GC_MILESTONES.findIndex(m => m > gamesPlayed)
+  if (idx === -1) return null
+  return { games: GC_MILESTONES[idx], gc: GC_TOTALS[idx] }
 }
 
 interface Props { isSuperAdmin: boolean }
@@ -154,7 +165,13 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
       <header className="sticky top-0 z-10 border-b px-4 py-3 flex items-center justify-between" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <button onClick={() => router.push('/dashboard')} className="text-sm" style={{ color: 'var(--text-sec)' }}>← Dashboard</button>
         <h1 className="font-display text-xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>GM SHOP</h1>
-        <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
+        <div className="text-right">
+          <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
+          <div className="text-[11px]" style={{ color: 'var(--text-sec)' }}>
+            {roster.gamesPlayed} partite
+            {(() => { const m = nextMilestone(roster.gamesPlayed); return m ? ` · ancora ${m.games - roster.gamesPlayed} per ${m.gc} GC totali` : ' · traguardo massimo raggiunto' })()}
+          </div>
+        </div>
       </header>
 
       {!shopOpen && (

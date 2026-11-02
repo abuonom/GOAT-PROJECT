@@ -89,7 +89,15 @@ export async function GET() {
     }
   })
 
-  return NextResponse.json({ roster, balance: balance ?? 0 })
+  // Partite della franchigia: servono per il contatore dei traguardi GC nel GM Shop
+  const { data: games } = await supabase
+    .from('franchise_season_games')
+    .select('games_played')
+    .eq('franchise_id', ctx.franchiseId)
+    .eq('season_id', ctx.seasonId)
+    .maybeSingle()
+
+  return NextResponse.json({ roster, balance: balance ?? 0, gamesPlayed: games?.games_played ?? 0 })
 }
 
 export async function POST(req: NextRequest) {
