@@ -1,4 +1,4 @@
-import { unstable_cache, updateTag } from 'next/cache'
+import { unstable_cache, updateTag, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
 
 // Cache del roster di un GM (per utente). Il roster cambia solo quando il GM
@@ -54,8 +54,14 @@ export function getCachedRoster(userId: string) {
   )()
 }
 
-// Da chiamare dentro una Server Action dopo ogni modifica del roster di un GM.
-// updateTag fa sì che la lettura successiva veda subito la modifica (niente dato vecchio).
-export function invalidateRoster(userId: string) {
-  updateTag(rosterTag(userId))
+// Invalida la cache del roster di un GM dopo una modifica.
+// updateTag (lettura subito aggiornata) funziona solo nelle Server Action;
+// nelle route handler usa revalidateTag. Un errore qui non deve far fallire l'operazione.
+export function invalidateRoster(userId: string, context: 'action' | 'route' = 'action') {
+  try {
+    if (context === 'action') updateTag(rosterTag(userId))
+    else revalidateTag(rosterTag(userId), 'max')
+  } catch {
+    // La modifica è già stata salvata: la cache si riallinea entro il tempo di revalidate
+  }
 }

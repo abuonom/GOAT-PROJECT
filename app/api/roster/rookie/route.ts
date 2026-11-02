@@ -54,11 +54,17 @@ export async function POST(req: NextRequest) {
   })
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
 
-  // Stessi controlli del roster: max 15, un solo proprietario, stato 'selected'
-  const result = await addPlayerToRoster(slug)
-  if (result.error) {
+  // Stessi controlli del roster: max 15, un solo proprietario, stato 'selected'.
+  // Il rollback scatta anche se l'aggiunta lancia un'eccezione (es. cache), così non restano righe orfane.
+  try {
+    const result = await addPlayerToRoster(slug)
+    if (result.error) {
+      await admin.from('players').delete().eq('slug', slug)
+      return NextResponse.json({ error: result.error }, { status: 400 })
+    }
+  } catch (e) {
     await admin.from('players').delete().eq('slug', slug)
-    return NextResponse.json({ error: result.error }, { status: 400 })
+    return NextResponse.json({ error: 'Impossibile aggiungere il rookie al roster' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, slug })

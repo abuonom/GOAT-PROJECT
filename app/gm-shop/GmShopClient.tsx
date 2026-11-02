@@ -238,11 +238,16 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
                     key={a.attribute_key}
                     disabled={done || remaining <= 0}
                     onClick={() => pickAttribute(a)}
-                    className="rounded-lg p-3 flex justify-between items-center text-left disabled:opacity-40"
-                    style={{ background: on ? 'var(--gold-bg2)' : 'var(--surface)', border: `1px solid ${on ? 'var(--gold)' : 'var(--border)'}` }}
+                    className={`rounded-lg p-3 flex justify-between items-center text-left ${done ? 'cursor-not-allowed' : ''}`}
+                    style={{
+                      background: done ? 'var(--surface2)' : on ? 'var(--gold-bg2)' : 'var(--surface)',
+                      border: `1px solid ${on ? 'var(--gold)' : 'var(--border)'}`,
+                      opacity: done ? 0.4 : remaining <= 0 ? 0.5 : 1,
+                      filter: done ? 'grayscale(100%)' : 'none',
+                    }}
                   >
-                    <span className="text-sm">{a.label_it}</span>
-                    <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{done ? 'FATTO' : `${a.base_cost} GC`}</span>
+                    <span className="text-sm" style={{ color: done ? 'var(--text-dim)' : 'var(--text)' }}>{a.label_it}</span>
+                    <span className="text-xs font-bold" style={{ color: done ? 'var(--text-dim)' : 'var(--gold)' }}>{done ? 'GIÀ POTENZIATO' : `${a.base_cost} GC`}</span>
                   </button>
                 )
               })}
