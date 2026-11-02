@@ -16,7 +16,11 @@ export async function GET(req: NextRequest) {
       .select('*')
       .eq('active', true)
       .order('sort_order')
-    return NextResponse.json({ attributes: data ?? [] })
+    const { data: tiers } = await supabase
+      .from('gc_surcharge_tiers')
+      .select('min_value, max_value, extra_gc')
+      .order('min_value')
+    return NextResponse.json({ attributes: data ?? [], surchargeTiers: tiers ?? [] })
   }
 
   if (type === 'context') {

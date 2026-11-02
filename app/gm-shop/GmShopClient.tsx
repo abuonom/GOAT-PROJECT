@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GmShopAttribute } from '@/types/league'
 import { calculateUpgradeCost, GM_SHOP_RULES } from '@/lib/gm-shop/rules'
+import PriceList from '@/components/PriceList'
 
 interface RosterEntry {
   slug: string
@@ -38,6 +39,7 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
 
   const [roster, setRoster] = useState<RosterResponse | null>(null)
   const [catalog, setCatalog] = useState<GmShopAttribute[]>([])
+  const [tiers, setTiers] = useState<{ min_value: number; max_value: number | null; extra_gc: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [shopOpen, setShopOpen] = useState(true)
   const [togglingShop, setTogglingShop] = useState(false)
@@ -66,7 +68,7 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
     Promise.all([
       loadRoster(),
       fetch('/api/gm-shop?type=catalog').then(r => r.json()),
-    ]).then(([, cat]) => setCatalog(cat.attributes ?? []))
+    ]).then(([, cat]) => { setCatalog(cat.attributes ?? []); setTiers(cat.surchargeTiers ?? []) })
       .finally(() => setLoading(false))
   }, [loadRoster])
 
@@ -176,6 +178,7 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
       )}
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        <PriceList attributes={catalog} tiers={tiers} />
         {toast && (
           <div className="rounded-lg px-4 py-3 text-sm" style={{
             background: toast.ok ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
