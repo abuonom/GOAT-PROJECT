@@ -165,13 +165,7 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
       <header className="sticky top-0 z-10 border-b px-4 py-3 flex items-center justify-between" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <button onClick={() => router.push('/dashboard')} className="text-sm" style={{ color: 'var(--text-sec)' }}>← Dashboard</button>
         <h1 className="font-display text-xl font-black tracking-wide" style={{ color: 'var(--gold)' }}>GM SHOP</h1>
-        <div className="text-right">
-          <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
-          <div className="text-[11px]" style={{ color: 'var(--text-sec)' }}>
-            {roster.gamesPlayed} partite
-            {(() => { const m = nextMilestone(roster.gamesPlayed); return m ? ` · ancora ${m.games - roster.gamesPlayed} per ${m.gc} GC totali` : ' · traguardo massimo raggiunto' })()}
-          </div>
-        </div>
+        <div className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{roster.balance} GC</div>
       </header>
 
       {!shopOpen && (
@@ -195,6 +189,27 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
       )}
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        {/* Partite e traguardo GC */}
+        {(() => {
+          const m = nextMilestone(roster.gamesPlayed)
+          const pct = m ? Math.min(100, Math.round((roster.gamesPlayed / m.games) * 100)) : 100
+          return (
+            <section className="rounded-xl p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <div className="flex justify-between items-baseline">
+                <span className="font-display text-sm font-bold tracking-wide">Partite giocate</span>
+                <span className="font-display text-lg font-black" style={{ color: 'var(--gold)' }}>{roster.gamesPlayed}</span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface2)' }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m ? '#60a5fa' : '#4ade80' }} />
+              </div>
+              <p className="text-xs" style={{ color: 'var(--text-sec)' }}>
+                {m
+                  ? `Ti mancano ${m.games - roster.gamesPlayed} partite per arrivare a ${m.games} partite: ${m.gc} GC totali.`
+                  : 'Hai raggiunto il massimo: tutte le partite della stagione.'}
+              </p>
+            </section>
+          )
+        })()}
         <PriceList attributes={catalog} tiers={tiers} />
         {toast && (
           <div className="rounded-lg px-4 py-3 text-sm" style={{
