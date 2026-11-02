@@ -1,0 +1,15 @@
+// Screenshot del roster dopo l'aggiunta del rookie dal form, per vedere cosa vede il GM.
+import { chromium } from 'playwright'
+const [base, email, password] = process.argv.slice(2)
+const browser = await chromium.launch()
+const page = await browser.newPage({ viewport: { width: 420, height: 900 } })
+await page.goto(base + '/login', { waitUntil: 'networkidle' })
+await page.fill('input[type="email"]', email)
+await page.fill('input[type="password"]', password)
+await page.getByRole('button', { name: /accedi/i }).last().click()
+await page.waitForURL(u => !u.toString().includes('/login'), { timeout: 30000 })
+await page.goto(base + '/roster', { waitUntil: 'networkidle', timeout: 60000 })
+await page.waitForTimeout(2000)
+await page.screenshot({ path: '.roster-check.png', fullPage: false })
+console.log('ok')
+await browser.close()

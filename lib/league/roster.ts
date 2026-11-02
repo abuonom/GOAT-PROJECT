@@ -216,3 +216,36 @@ export async function confirmRoster(): Promise<{ error?: string; count?: number 
     return { error: String(e) }
   }
 }
+
+// Crea un rookie nato nel gioco e lo aggiunge al roster del GM.
+// Server Action: la cache del roster si aggiorna subito (updateTag), senza il ritardo della route.
+export async function createRookieForRoster(input: {
+  name: string
+  overall: number
+  draftYear: number
+  positions: string[]
+}): Promise<{ error?: string; slug?: string }> {
+  const { supabase, user } = await getAuthContext()
+  const name = input.name.trim()
+  if (!name) return { error: 'Nome obbligatorio' }
+  if (!Number.isInteger(input.overall) || input.overall < 40 || input.overall > 99) return { error: 'Overall non valido (40–99)' }
+  if (!Number.isInteger(input.draftYear) || input.draftYear < 2027 || input.draftYear > 2100) return { error: 'Anno di draft non valido (2027 o successivo)' }
+  const positions = input.positions.filter(p => typeof p === 'string')
+  if (positions.length === 0) return { error: 'Inserisci almeno una posizione' }
+
+  const slug = `rookie-${input.draftYear}-${name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Math.random().toString(36).slice(2, 6)}`
+  const admin = createAdminClient()
+
+  const { error: insErr } = await admin.from('players').insert({
+    slug,
+    data: { name, slug, team: 'Free Agency', teamType: 'gm_created', overall: input.overall, positions, draftYear: input.draftYear, isRookie: true, attributes: {}, badges: { list: [] } },
+  })
+  if (insErr) return { error: insErr.message }
+
+  const result = await addPlayerToRoster(slug)
+  if (result.error) {
+    await admin.from('players').delete().eq('slug', slug)
+    return { error: result.error }
+  }
+  return { slug }
+}

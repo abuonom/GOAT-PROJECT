@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createRookieForRoster } from '@/lib/league/roster'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
 
@@ -24,14 +25,9 @@ export default function AddRookieForm({ onAdded, onError }: Props) {
 
   async function submit() {
     setBusy(true)
-    const res = await fetch('/api/roster/rookie', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, overall: Number(overall), draftYear: Number(draftYear), positions }),
-    })
-    const json = await res.json()
+    const result = await createRookieForRoster({ name, overall: Number(overall), draftYear: Number(draftYear), positions })
     setBusy(false)
-    if (!res.ok) { onError(json.error ?? 'Errore'); return }
+    if (result.error) { onError(result.error); return }
     setName(''); setOverall(''); setPositions([]); setOpen(false)
     onAdded()
   }
