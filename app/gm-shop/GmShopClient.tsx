@@ -199,8 +199,25 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
                 <span className="font-display text-sm font-bold tracking-wide">Partite giocate</span>
                 <span className="font-display text-lg font-black" style={{ color: 'var(--gold)' }}>{roster.gamesPlayed}</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface2)' }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m ? '#60a5fa' : '#4ade80' }} />
+              <div className="relative pb-5">
+                <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface2)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m ? '#60a5fa' : '#4ade80' }} />
+                </div>
+                {GC_MILESTONES.map((g, i) => {
+                  const reached = roster.gamesPlayed >= g
+                  return (
+                    <div
+                      key={g}
+                      className="absolute top-0 -translate-x-1/2 flex flex-col items-center"
+                      style={{ left: `${(g / 82) * 100}%` }}
+                    >
+                      <span className="w-0.5 h-3" style={{ background: reached ? '#4ade80' : 'var(--text-dim)' }} />
+                      <span className="text-[10px] font-mono mt-1 whitespace-nowrap" style={{ color: reached ? '#4ade80' : 'var(--text-dim)' }}>
+                        {g} · {GC_TOTALS[i]} GC
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
               <p className="text-xs" style={{ color: 'var(--text-sec)' }}>
                 {m
