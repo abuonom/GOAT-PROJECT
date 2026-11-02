@@ -272,7 +272,7 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
                     max={98}
                     value={fromValue}
                     onChange={e => setFromValue(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="Es. 70"
+                    placeholder="Valore attuale"
                     className="w-28 rounded-lg px-3 py-2 text-sm font-bold"
                     style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   />
