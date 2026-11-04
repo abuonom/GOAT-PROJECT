@@ -92,13 +92,6 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin, play
             🏀 GOAT LEAGUE
           </span>
           <div className="flex items-center gap-3">
-            {profile?.role === 'admin' && (
-              <button onClick={() => router.push('/admin')}
-                className="text-xs font-semibold px-3 py-1.5 rounded"
-                style={{ background: 'rgba(234,179,8,0.1)', color: 'var(--gold)', border: '1px solid rgba(234,179,8,0.3)' }}>
-                Backoffice
-              </button>
-            )}
             <button onClick={handleLogout}
               className="text-xs font-semibold px-3 py-1.5 rounded"
               style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
@@ -144,6 +137,22 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin, play
               {pickLoading ? 'Caricamento...' : 'SCEGLI FRANCHIGIA →'}
             </button>
           </div>
+        )}
+
+        {/* Backoffice: visibile a tutti gli admin */}
+        {profile?.role === 'admin' && (
+          <section className="space-y-3">
+            <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--gold)' }}>AMMINISTRAZIONE</h2>
+            <button onClick={() => router.push('/admin')}
+              className="w-full rounded-xl p-5 text-left flex items-center gap-4"
+              style={{ background: 'rgba(234,179,8,0.06)', border: '2px solid rgba(234,179,8,0.3)', cursor: 'pointer' }}>
+              <span className="text-3xl">⚙️</span>
+              <span>
+                <span className="block font-display font-black text-base tracking-wide" style={{ color: 'var(--gold)' }}>BACKOFFICE</span>
+                <span className="block text-xs mt-1" style={{ color: 'var(--text-sec)' }}>Gestione utenti, season e GM Shop</span>
+              </span>
+            </button>
+          </section>
         )}
 
         {/* Azioni del GM */}
@@ -194,7 +203,6 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin, play
                 ...(playerListEnabled ? [{ label: 'Player List', icon: '📋', path: '/draft-builder' }] : []),
                 { label: 'Draft Class', icon: '🎓', path: '/draft' },
                 { label: 'Dunkest Draft', icon: '🏆', path: '/goat-draft' },
-                { label: 'Backoffice', icon: '⚙️', path: '/admin' },
               ].map(item => (
                 <button key={item.label} onClick={() => router.push(item.path)}
                   className="rounded-xl p-4 text-left"
