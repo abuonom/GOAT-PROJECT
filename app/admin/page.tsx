@@ -135,7 +135,8 @@ export default function AdminPage() {
     const json = await res.json()
     setProcessingId(null)
     if (json.error) { showToast(json.error, false); return }
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, processedAt: new Date().toISOString() } : n))
+    const me = profile?.display_name ?? 'admin'
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, processedAt: new Date().toISOString(), processedBy: me } : n))
   }
 
   async function cancelPurchase(id: string) {
@@ -507,6 +508,11 @@ export default function AdminPage() {
                               <span className="text-xs" style={{ color: 'var(--text-dim)', wordBreak: 'break-word' }}>/ {n.detail}</span>
                             )}
                           </div>
+                          {isProcessed && (
+                            <div className="text-[11px] mt-0.5" style={{ color: '#4ade80' }}>
+                              ✓ Fatto da {n.processedBy ?? 'admin sconosciuto'} il {new Date(n.processedAt!).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
                         </div>
                         <div className="text-[11px] shrink-0 text-right" style={{ color: 'var(--text-dim)' }}>
                           {new Date(n.createdAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}

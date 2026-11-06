@@ -125,7 +125,7 @@ export async function GET() {
       amount: -tx.gc_cost,
       createdAt: tx.created_at,
       processedAt: tx.admin_processed_at ?? null,
-      processedBy: tx.processed_by ?? null,
+      processedBy: tx.processed_by ? (displayNameMap[tx.processed_by] ?? emailMap[tx.processed_by] ?? tx.processed_by.slice(0, 8)) : null,
       cancelledAt: tx.cancelled_at ?? null,
     })
   }
