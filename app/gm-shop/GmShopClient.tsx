@@ -53,6 +53,9 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
   const [tiers, setTiers] = useState<{ min_value: number; max_value: number | null; extra_gc: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [shopOpen, setShopOpen] = useState(true)
+  const [shopClosesAt, setShopClosesAt] = useState<string | null>(null)
+  const [closesAtInput, setClosesAtInput] = useState('')
+  const [savingClosesAt, setSavingClosesAt] = useState(false)
   const [togglingShop, setTogglingShop] = useState(false)
 
   const [selected, setSelected] = useState<RosterEntry | null>(null)
@@ -75,7 +78,10 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
   }, [router])
 
   useEffect(() => {
-    fetch('/api/shop/state').then(r => r.json()).then(j => { if (typeof j.open === 'boolean') setShopOpen(j.open) })
+    fetch('/api/shop/state').then(r => r.json()).then(j => {
+      if (typeof j.open === 'boolean') setShopOpen(j.open)
+      setShopClosesAt(j.closesAt ?? null)
+    })
     Promise.all([
       loadRoster(),
       fetch('/api/gm-shop?type=catalog').then(r => r.json()),
@@ -94,7 +100,26 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
     setTogglingShop(false)
     if (json.error) { showToast(json.error, false); return }
     setShopOpen(json.open)
+    setShopClosesAt(json.closesAt ?? null)
     showToast(json.open ? 'Shop aperto' : 'Shop chiuso')
+  }
+
+  async function saveClosesAt(value: string | null) {
+    setSavingClosesAt(true)
+    // L'input datetime-local è ora locale del browser: la convertiamo in ISO
+    const iso = value ? new Date(value).toISOString() : null
+    const res = await fetch('/api/shop/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ closesAt: iso }),
+    })
+    const json = await res.json()
+    setSavingClosesAt(false)
+    if (json.error) { showToast(json.error, false); return }
+    setShopOpen(json.open)
+    setShopClosesAt(json.closesAt ?? null)
+    setClosesAtInput('')
+    showToast(value ? 'Chiusura programmata' : 'Chiusura programmata rimossa')
   }
 
   const isBadge = attr?.is_badge_upgrade === true
@@ -185,6 +210,33 @@ export default function GmShopClient({ isSuperAdmin }: Props) {
           >
             {togglingShop ? '…' : shopOpen ? 'Chiudi shop' : 'Apri shop'}
           </button>
+        </div>
+      )}
+
+      {isSuperAdmin && (
+        <div className="px-4 pb-3 flex flex-wrap items-center justify-center gap-2 text-xs" style={{ color: 'var(--text-sec)' }}>
+          {shopClosesAt ? (
+            <>
+              <span>Chiusura automatica: {new Date(shopClosesAt).toLocaleString('it-IT')}</span>
+              <button onClick={() => saveClosesAt(null)} disabled={savingClosesAt}
+                className="font-bold px-2 py-1 rounded-lg disabled:opacity-50"
+                style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}>
+                Rimuovi
+              </button>
+            </>
+          ) : (
+            <>
+              <span>Chiusura automatica:</span>
+              <input type="datetime-local" value={closesAtInput} onChange={e => setClosesAtInput(e.target.value)}
+                className="px-2 py-1 rounded-lg"
+                style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }} />
+              <button onClick={() => saveClosesAt(closesAtInput)} disabled={!closesAtInput || savingClosesAt}
+                className="font-bold px-2 py-1 rounded-lg disabled:opacity-50"
+                style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}>
+                Programma
+              </button>
+            </>
+          )}
         </div>
       )}
 
