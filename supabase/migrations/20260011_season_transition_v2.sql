@@ -55,8 +55,8 @@ BEGIN
     AND status != 'released';
 
   -- Copy gm_shop_upgrades (upgrades persist across seasons)
-  INSERT INTO gm_shop_upgrades (season_id, user_id, player_slug, attribute_key, badge_name, delta, transaction_id)
-  SELECT v_new_season_id, user_id, player_slug, attribute_key, badge_name, delta, transaction_id
+  INSERT INTO gm_shop_upgrades (transaction_id, season_id, user_id, player_slug, attribute_key, old_value, new_value, gc_cost)
+  SELECT transaction_id, v_new_season_id, user_id, player_slug, attribute_key, old_value, new_value, gc_cost
   FROM gm_shop_upgrades
   WHERE season_id = v_current_season_id;
 
