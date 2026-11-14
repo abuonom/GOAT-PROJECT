@@ -16,7 +16,10 @@ DECLARE
   v_balance            integer;
   v_carry_over         integer;
 BEGIN
-  IF NOT is_admin() THEN
+  -- is_admin() usa auth.uid(), che è NULL con service role: controlla p_admin_id
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles WHERE id = p_admin_id AND role = 'admin'
+  ) THEN
     RAISE EXCEPTION 'Accesso negato: solo gli admin possono chiudere una stagione';
   END IF;
 
