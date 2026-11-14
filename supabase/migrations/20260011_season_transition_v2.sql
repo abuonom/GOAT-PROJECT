@@ -42,8 +42,8 @@ BEGIN
   RETURNING id INTO v_new_season_id;
 
   -- Copy league members (same franchises, same GMs)
-  INSERT INTO league_members (season_id, user_id, franchise_id, joined_at)
-  SELECT v_new_season_id, user_id, franchise_id, now()
+  INSERT INTO league_members (league_id, season_id, user_id, franchise_id, joined_at)
+  SELECT v_league_id, v_new_season_id, user_id, franchise_id, now()
   FROM league_members
   WHERE season_id = v_current_season_id;
 
