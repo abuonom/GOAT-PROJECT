@@ -359,8 +359,7 @@ export default function AdminPage() {
     }
     const ok = confirm(
       `Svuotare tutti i roster di "${preview.seasonName}"?\n\n` +
-      `• Giocatori che verranno rimossi: ${preview.toRelease}\n` +
-      `• Rookie aggiunti a mano che restano: ${preview.keptRookies}\n` +
+      `• Giocatori che verranno rimossi (rookie inclusi): ${preview.toRelease}\n` +
       `• Acquisti e upgrade del GM Shop: restano invariati\n\n` +
       `I GM dovranno ricostruire il roster.`
     )
@@ -369,7 +368,7 @@ export default function AdminPage() {
     const json = await res.json()
     setRosterResetLoading(false)
     if (json.error) { showToast(json.error, false); return }
-    showToast(`Roster svuotati: ${json.released} giocatori rimossi, ${json.keptRookies} rookie mantenuti`)
+    showToast(`Roster svuotati: ${json.released} giocatori rimossi`)
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -799,7 +798,7 @@ export default function AdminPage() {
               <div>
                 <div className="font-display font-black tracking-wide text-sm mb-1" style={{ color: 'var(--text)' }}>SVUOTA TUTTI I ROSTER</div>
                 <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                  Toglie tutti i giocatori da tutti i roster della stagione attiva. Restano invariati gli upgrade del GM Shop e i rookie aggiunti a mano.
+                  Toglie tutti i giocatori, rookie aggiunti a mano compresi, da tutti i roster della stagione attiva. Gli upgrade del GM Shop restano invariati.
                 </p>
               </div>
               <button

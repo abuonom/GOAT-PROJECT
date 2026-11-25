@@ -5,9 +5,10 @@ import { NextResponse } from 'next/server'
 
 // Svuota i roster della stagione attiva (tutte le franchigie).
 // - Le righe di roster_memberships passano a 'released' (non vengono cancellate).
-// - Restano intatti: upgrade e acquisti del GM Shop (tabelle separate) e i rookie
-//   creati a mano dai GM (players.data.teamType = 'gm_created').
-// GET  → anteprima: quanti giocatori verrebbero rilasciati e quanti rookie restano.
+//   Vale per tutti i giocatori, rookie creati a mano compresi.
+// - Restano intatti: upgrade e acquisti del GM Shop (tabelle separate) e la scheda
+//   dei rookie nella tabella players.
+// GET  → anteprima: quanti giocatori verrebbero rilasciati.
 // POST → esegue lo svuotamento.
 
 async function requireAdmin() {
@@ -30,14 +31,6 @@ async function loadPlan() {
     .single()
   if (!season) return { error: 'Nessuna stagione attiva' as const }
 
-  // Rookie manuali: restano nei roster
-  const { data: rookieRows, error: rookieErr } = await admin
-    .from('players')
-    .select('slug')
-    .eq('data->>teamType', 'gm_created')
-  if (rookieErr) return { error: rookieErr.message }
-  const rookieSlugs = new Set((rookieRows ?? []).map((r: { slug: string }) => r.slug))
-
   const { data: memberships, error: memErr } = await admin
     .from('roster_memberships')
     .select('id, player_slug, franchise_id')
@@ -46,11 +39,9 @@ async function loadPlan() {
     .limit(5000)
   if (memErr) return { error: memErr.message }
 
-  const all = (memberships ?? []) as Membership[]
-  const toRelease = all.filter(m => !rookieSlugs.has(m.player_slug))
-  const kept = all.length - toRelease.length
+  const toRelease = (memberships ?? []) as Membership[]
 
-  return { admin, season, toRelease, kept }
+  return { admin, season, toRelease }
 }
 
 export async function GET() {
@@ -63,7 +54,6 @@ export async function GET() {
   return NextResponse.json({
     seasonName: plan.season.name,
     toRelease: plan.toRelease.length,
-    keptRookies: plan.kept,
   })
 }
 
@@ -73,10 +63,10 @@ export async function POST() {
 
   const plan = await loadPlan()
   if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 500 })
-  const { admin, season, toRelease, kept } = plan
+  const { admin, season, toRelease } = plan
 
   if (toRelease.length === 0) {
-    return NextResponse.json({ ok: true, released: 0, keptRookies: kept })
+    return NextResponse.json({ ok: true, released: 0 })
   }
 
   // Rilascio a blocchi per non superare i limiti di lunghezza della query
@@ -109,8 +99,8 @@ export async function POST() {
     actor_id: adminUser.id,
     season_id: season.id,
     reason: 'Svuotamento di tutti i roster (backoffice)',
-    metadata: { released: toRelease.length, keptRookies: kept },
+    metadata: { released: toRelease.length },
   })
 
-  return NextResponse.json({ ok: true, released: toRelease.length, keptRookies: kept })
+  return NextResponse.json({ ok: true, released: toRelease.length })
 }
