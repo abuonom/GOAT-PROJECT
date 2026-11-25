@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -49,6 +50,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm">
+        <Link href="/" className="inline-block text-xs font-semibold mb-6" style={{ color: 'var(--text-sec)' }}>
+          ← Torna alla home
+        </Link>
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl font-black tracking-widest" style={{ color: 'var(--gold)' }}>GOAT LEAGUE</h1>
           <p className="font-display text-lg font-bold tracking-wide mt-1" style={{ color: 'var(--text)' }}>COMPANION</p>

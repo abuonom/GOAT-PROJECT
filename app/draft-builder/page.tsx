@@ -442,7 +442,7 @@ export default function DraftBuilderPage() {
 
             {/* Esci */}
             <button
-              onClick={async () => { const sb = createClient(); await sb.auth.signOut(); router.push('/login'); router.refresh() }}
+              onClick={async () => { const sb = createClient(); await sb.auth.signOut(); router.push('/'); router.refresh() }}
               className="text-xs font-semibold px-3 py-1.5 rounded transition-colors"
               style={{ background: 'var(--surface2)', color: 'var(--text-sec)', border: '1px solid var(--border)' }}
             >

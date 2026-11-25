@@ -59,9 +59,32 @@ export default function Home() {
         REGISTRATI / ENTRA
       </Link>
 
-      <p className="mt-4 text-sm max-w-md" style={{ color: 'var(--text-sec)' }}>
-        Consulta il regolamento e i roster attuali. Per gestire la tua squadra, accedi.
+      <p className="mt-3 text-sm max-w-md" style={{ color: 'var(--text-sec)' }}>
+        Per gestire la tua squadra, il roster e il GM Shop serve un account.
       </p>
+
+      <div className="mt-12 w-full max-w-2xl">
+        <div className="text-[10px] sm:text-xs tracking-[0.3em] mb-3" style={{ color: 'var(--text-dim)' }}>
+          SENZA ACCOUNT PUOI CONSULTARE
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { href: '/regolamento', icon: '📜', label: 'Regolamento' },
+            { href: '/roster-attuali', icon: '🏀', label: 'Roster attuali' },
+            { href: '/albo-doro', icon: '🥇', label: "Albo d'oro" },
+          ].map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="rounded-xl py-4 px-4 flex sm:flex-col items-center justify-center gap-2 transition-colors"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <span className="text-xl">{l.icon}</span>
+              <span className="font-display font-bold text-sm tracking-wide" style={{ color: 'var(--text)' }}>{l.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </section>
   )
 }

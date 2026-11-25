@@ -34,6 +34,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Già loggato: la home e il login non servono, si va dritti alla propria area
+  if (user && (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
   // Guard /admin routes: only admins allowed
   if (user && request.nextUrl.pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
