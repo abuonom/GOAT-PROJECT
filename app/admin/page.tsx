@@ -94,6 +94,7 @@ export default function AdminPage() {
   const [newSeasonName, setNewSeasonName] = useState('')
   const [gameVersion, setGameVersion] = useState('2K27')
   const [seasonLoading, setSeasonLoading] = useState(false)
+  const [rosterResetLoading, setRosterResetLoading] = useState(false)
 
   // Toast (single global)
   const [toast, setToast] = useState<{ msg: string; ok: boolean; key: number } | null>(null)
@@ -344,6 +345,31 @@ export default function AdminPage() {
     showToast(`Stagione "${newSeasonName}" aperta!`)
     setNewSeasonName('')
     fetchSeason()
+  }
+
+  async function resetAllRosters() {
+    setRosterResetLoading(true)
+    const previewRes = await fetch('/api/admin/rosters/reset')
+    const preview = await previewRes.json()
+    if (preview.error) { setRosterResetLoading(false); showToast(preview.error, false); return }
+    if (preview.toRelease === 0) {
+      setRosterResetLoading(false)
+      showToast('Nessun giocatore da rimuovere: i roster sono già vuoti')
+      return
+    }
+    const ok = confirm(
+      `Svuotare tutti i roster di "${preview.seasonName}"?\n\n` +
+      `• Giocatori che verranno rimossi: ${preview.toRelease}\n` +
+      `• Rookie aggiunti a mano che restano: ${preview.keptRookies}\n` +
+      `• Acquisti e upgrade del GM Shop: restano invariati\n\n` +
+      `I GM dovranno ricostruire il roster.`
+    )
+    if (!ok) { setRosterResetLoading(false); return }
+    const res = await fetch('/api/admin/rosters/reset', { method: 'POST' })
+    const json = await res.json()
+    setRosterResetLoading(false)
+    if (json.error) { showToast(json.error, false); return }
+    showToast(`Roster svuotati: ${json.released} giocatori rimossi, ${json.keptRookies} rookie mantenuti`)
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -767,6 +793,27 @@ export default function AdminPage() {
               {currentSeason?.game_version && (
                 <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>NBA2K {currentSeason.game_version}</div>
               )}
+            </div>
+
+            <div className="rounded-xl px-5 py-5 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <div>
+                <div className="font-display font-black tracking-wide text-sm mb-1" style={{ color: 'var(--text)' }}>SVUOTA TUTTI I ROSTER</div>
+                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                  Toglie tutti i giocatori da tutti i roster della stagione attiva. Restano invariati gli upgrade del GM Shop e i rookie aggiunti a mano.
+                </p>
+              </div>
+              <button
+                onClick={resetAllRosters}
+                disabled={rosterResetLoading}
+                className="font-display font-black tracking-wide text-sm px-6 py-3 rounded-xl w-full"
+                style={{
+                  background: rosterResetLoading ? 'var(--surface2)' : 'rgba(239,68,68,0.12)',
+                  color: rosterResetLoading ? 'var(--text-dim)' : '#f87171',
+                  border: `1px solid ${rosterResetLoading ? 'var(--border)' : 'rgba(239,68,68,0.4)'}`,
+                }}
+              >
+                {rosterResetLoading ? 'Operazione in corso...' : '🧹 SVUOTA ROSTER'}
+              </button>
             </div>
 
             <div className="rounded-xl px-5 py-5 space-y-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

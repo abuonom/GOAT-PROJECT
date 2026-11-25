@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function Home() {
   return (
@@ -49,6 +50,14 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      <Link
+        href="/login"
+        className="mt-10 font-display font-black tracking-widest text-base sm:text-lg px-10 py-4 rounded-xl transition-opacity hover:opacity-90"
+        style={{ background: 'var(--gold)', color: '#000', boxShadow: '0 0 28px rgba(212,160,23,0.35)' }}
+      >
+        REGISTRATI / ENTRA
+      </Link>
 
       <p className="mt-4 text-sm max-w-md" style={{ color: 'var(--text-sec)' }}>
         Consulta il regolamento e i roster attuali. Per gestire la tua squadra, accedi.
