@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Franchise } from '@/types/league'
 import FeatureToggle from '@/components/FeatureToggle'
+import GamesProgress from '@/components/GamesProgress'
 
 interface Props {
   profile: Profile | null
@@ -24,6 +25,20 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin, play
   const [pickLoading, setPickLoading] = useState(false)
   const [pickActing, setPickActing] = useState<string | null>(null)
   const [pickError, setPickError] = useState<string | null>(null)
+
+  // Crediti e partite della franchigia (stessi dati del GM Shop)
+  const [credits, setCredits] = useState<{ balance: number; gamesPlayed: number; seasonName: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/gm-credits')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (j && typeof j.balance === 'number') {
+          setCredits({ balance: j.balance, gamesPlayed: j.gamesPlayed ?? 0, seasonName: j.seasonName ?? '' })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const checkFranchise = useCallback(async () => {
     const supabase = createClient()
@@ -153,6 +168,28 @@ export default function DashboardClient({ profile, userEmail, isSuperAdmin, play
                 <span className="block text-xs mt-1" style={{ color: 'var(--text-sec)' }}>Gestione utenti, season e GM Shop</span>
               </span>
             </button>
+          </section>
+        )}
+
+        {/* Crediti e partite: visibili solo a chi ha una franchigia */}
+        {!franchiseLoading && myFranchise && credits && (
+          <section className="space-y-3">
+            <h2 className="font-display text-xs font-bold tracking-widest" style={{ color: 'var(--text-sec)' }}>I TUOI CREDITI</h2>
+            <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4"
+              style={{ background: 'var(--surface)', border: '1px solid var(--gold-dim)' }}>
+              <div>
+                <div className="text-[10px] font-black tracking-widest" style={{ color: 'var(--text-dim)' }}>SALDO GM CREDITS</div>
+                <div className="font-display text-4xl font-black leading-none mt-1" style={{ color: 'var(--gold)' }}>
+                  {credits.balance} <span className="text-lg">GC</span>
+                </div>
+              </div>
+              <button onClick={() => router.push('/gm-credits')}
+                className="text-xs font-semibold px-3 py-2 rounded-lg shrink-0"
+                style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}>
+                Storico →
+              </button>
+            </div>
+            <GamesProgress gamesPlayed={credits.gamesPlayed} />
           </section>
         )}
 
