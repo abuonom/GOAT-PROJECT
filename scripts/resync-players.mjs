@@ -73,7 +73,7 @@ function diff(oldP, newP) {
   }
 
   // Badges
-  const oldBadges = oldP.badges?.list ?? []
+  const oldBadges = (oldP.badges?.list ?? []).filter(b => !b.manual)   // i cartellini manuali non vengono dall'API
   const newBadges = newP.badges?.list ?? []
   if (oldBadges.length !== newBadges.length) {
     changes.push({ field: 'badges', old: oldBadges.length, new: newBadges.length })
@@ -245,15 +245,24 @@ function printReport(report) {
 
 // ── Step 4: applica aggiornamenti ─────────────────────────────────────────────
 
-async function applyUpdates(report, apiPlayers) {
+async function applyUpdates(report, apiPlayers, dbRows) {
   const apiMap = new Map(apiPlayers.map(p => [p.slug, p]))
+  const dbMap  = new Map(dbRows.map(r => [r.slug, r.data]))
 
   const toUpsert = [
     ...report.changed.map(c => c.slug),
     ...report.newInApi,
   ].map(slug => {
     const p = apiMap.get(slug)
-    return { slug, data: p, updated_at: new Date().toISOString() }
+    // Cartellini aggiunti a mano dall'admin: restano, tranne se l'API ora li ha già
+    const apiList = p.badges?.list ?? []
+    const apiNames = new Set(apiList.map(b => b.name.toLowerCase()))
+    const manual = (dbMap.get(slug)?.badges?.list ?? [])
+      .filter(b => b.manual && !apiNames.has(b.name.toLowerCase()))
+    const data = manual.length > 0
+      ? { ...p, badges: { ...(p.badges ?? {}), list: [...apiList, ...manual] } }
+      : p
+    return { slug, data, updated_at: new Date().toISOString() }
   })
 
   if (toUpsert.length === 0) {
@@ -292,7 +301,7 @@ async function main() {
   printReport(report)
 
   if (APPLY) {
-    await applyUpdates(report, apiPlayers)
+    await applyUpdates(report, apiPlayers, dbRows)
   } else {
     const total = report.changed.length + report.newInApi.length
     if (total > 0) {

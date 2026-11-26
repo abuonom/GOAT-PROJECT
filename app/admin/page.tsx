@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
+import BadgesPanel from './BadgesPanel'
 
 interface AdminUser {
   id: string
@@ -16,7 +17,7 @@ interface AdminUser {
   franchiseAbbr: string | null
 }
 
-type Tab = 'notifications' | 'users' | 'credits' | 'season'
+type Tab = 'notifications' | 'users' | 'credits' | 'badges' | 'season'
 
 interface AdminNotification {
   id: string
@@ -420,6 +421,7 @@ export default function AdminPage() {
             ['notifications', 'NOTIFICHE', unprocessedShopCount],
             ['users',         'UTENTI',    0],
             ['credits',       'CREDITI',   0],
+            ['badges',        'BADGE',     0],
             ['season',        'STAGIONE',  0],
           ] as [Tab, string, number][]).map(([t, label, badge]) => (
             <button
@@ -780,6 +782,9 @@ export default function AdminPage() {
             )}
           </section>
         )}
+
+        {/* ── BADGE ── */}
+        {tab === 'badges' && <BadgesPanel showToast={showToast} />}
 
         {/* ── SEASON ── */}
         {tab === 'season' && (

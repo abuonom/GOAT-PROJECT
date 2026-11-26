@@ -243,7 +243,7 @@ async function main() {
           return
         }
 
-        const oldBadges = row.data?.badges?.list ?? []
+        const oldBadges = (row.data?.badges?.list ?? []).filter(b => !b.manual)   // i cartellini manuali non vengono da 2kratings
         const oldCount  = oldBadges.length
         const newCount  = scraped.length
 
@@ -301,11 +301,16 @@ async function main() {
     await chunk(changed, 50, async (batch) => {
       const rows = batch.map(c => {
         const existing = dbRows.find(r => r.slug === c.slug)
+        // Cartellini aggiunti a mano dall'admin: restano, tranne se 2kratings ora li ha già
+        const scrapedNames = new Set(c.scraped.map(b => b.name.toLowerCase()))
+        const manual = (existing.data?.badges?.list ?? [])
+          .filter(b => b.manual && !scrapedNames.has(b.name.toLowerCase()))
+        const list = [...c.scraped, ...manual]
         const newData = {
           ...existing.data,
           badges: {
-            total: c.scraped.length,
-            list: c.scraped,
+            total: list.length,
+            list,
           },
         }
         return { slug: c.slug, data: newData, updated_at: new Date().toISOString() }
