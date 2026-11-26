@@ -8,6 +8,7 @@ import type { Player } from '@/types/nba'
 import AddRookieForm from './AddRookieForm'
 import PlayerSearch from './PlayerSearch'
 import GcBadge from '@/components/GcBadge'
+import BadgesDialog, { type PlayerBadge } from './BadgesDialog'
 
 interface Props {
   isAdmin: boolean
@@ -27,6 +28,7 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
   const [players, setPlayers] = useState<Record<string, Player>>({})
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
+  const [badgeSlug, setBadgeSlug] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
   const MAX_ROSTER = 15
@@ -210,6 +212,16 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
                     </span>
                   )}
 
+                  {/* Cartellini */}
+                  <button
+                    onClick={() => setBadgeSlug(m.player_slug)}
+                    disabled={isActing}
+                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg shrink-0"
+                    style={{ background: 'var(--gold-bg)', color: 'var(--gold)', border: '1px solid var(--gold-dim)' }}
+                  >
+                    Cartellini
+                  </button>
+
                   {/* Remove button */}
                   <button
                     onClick={() => removePlayer(m.player_slug)}
@@ -225,6 +237,19 @@ export default function RosterClient({ isAdmin, franchiseName, seasonName, hasFr
           </div>
         )}
       </div>
+
+      {/* Cartellini del giocatore */}
+      {badgeSlug && (
+        <BadgesDialog
+          key={badgeSlug}
+          slug={badgeSlug}
+          playerName={players[badgeSlug]?.name ?? badgeSlug}
+          badges={(players[badgeSlug]?.badges?.list ?? []) as PlayerBadge[]}
+          onClose={() => setBadgeSlug(null)}
+          onChanged={reload}
+          onMessage={(msg, ok) => showToast(msg, ok)}
+        />
+      )}
 
       {/* Toast */}
       {toast && (
